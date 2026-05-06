@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s http://localhost:5175/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5175)",
+      "Bash(npx --no-install tsc --noEmit)",
+      "Bash(node_modules/.bin/tsc.cmd --noEmit)",
+      "Bash(curl -s http://localhost:5173)",
+      "Bash(curl -s http://localhost:5177)",
+      "Bash(curl -s \"http://localhost:5177/src/app/context/AppDataContext.tsx\")",
+      "Bash(curl -s \"http://localhost:5177/@vite/client\")",
+      "Bash(curl -s \"http://localhost:5177/src/app/components/sales/PickupNotesPage.tsx\")",
+      "Bash(curl -s \"http://localhost:5177/src/main.tsx\")",
+      "Bash(curl -s \"http://localhost:5177/src/app/App.tsx\")",
+      "Bash(pkill -f \"vite\")",
+      "Bash(pkill -9 -f \"node.*vite\")",
+      "Bash(sed -n '96,130p' /c/Users/ayahr/projects/enhance-dashboard-12-04-2026/src/app/components/sales/DeliveryNotesPage.tsx)",
+      "Bash(sed -n '58,90p' /c/Users/ayahr/projects/enhance-dashboard-12-04-2026/src/app/components/sales/SalesOrders.tsx)",
+      "Bash(sed -n '152,175p' /c/Users/ayahr/projects/enhance-dashboard-12-04-2026/src/app/components/sales/ReservationDetailsPage.tsx)",
+      "Bash(sed -n '78,110p' /c/Users/ayahr/projects/enhance-dashboard-12-04-2026/src/app/components/sales/UnloadPage.tsx)"
+    ]
+  }
+}

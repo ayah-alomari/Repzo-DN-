@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "Bash(npx vite:*)",
+      "Bash(node -e ':*)",
+      "Bash(node -e:*)",
+      "Bash(npx tsc:*)",
+      "Bash(node_modules/.bin/tsc --noEmit --skipLibCheck)",
+      "Bash(python3 -c ':*)",
+      "Bash(curl -s \"http://localhost:5175/src/app/components/planogram/PlanogramDesigner.tsx\" -o /dev/null -w \"%{http_code}\")",
+      "Bash(node_modules/.bin/tsc --noEmit)"
+    ]
+  }
+}
