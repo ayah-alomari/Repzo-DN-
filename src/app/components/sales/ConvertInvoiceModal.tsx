@@ -118,9 +118,9 @@ export function ConvertInvoiceModal({
   const [issueDate, setIssueDate] = useState("04/22/2026");
   const [dueDate, setDueDate] = useState("05/22/2026");
   const [paymentStatus, setPaymentStatus] = useState("UNPAID");
-  const { allowMultiWarehouseReservation, reservations: allReservations, enableTransactionalInvoice, transactionalMode } = useAppData();
+  const { allowMultiWarehouseReservation, reservations: allReservations, enableTransactionalInvoice, transactionalMode, defaultMarkAsDelivered: ctxDefaultMarkAsDelivered } = useAppData();
 
-  const defaultMarkAsDelivered = enableTransactionalInvoice && transactionalMode === "strict";
+  const defaultMarkAsDelivered = enableTransactionalInvoice && (transactionalMode === "strict" || ctxDefaultMarkAsDelivered);
   const [markAsDelivered, setMarkAsDelivered] = useState(defaultMarkAsDelivered);
 
   const isCheckboxDisabled = !enableTransactionalInvoice || (enableTransactionalInvoice && transactionalMode === "strict");
@@ -179,11 +179,11 @@ export function ConvertInvoiceModal({
       setRepLocked(!!soCreatedBy);
       setIssueDate("04/22/2026");
       setDueDate("05/22/2026");
-      setMarkAsDelivered(enableTransactionalInvoice && transactionalMode === "strict");
+      setMarkAsDelivered(enableTransactionalInvoice && (transactionalMode === "strict" || ctxDefaultMarkAsDelivered));
       setGlobalWarehouseStep2("");
       initAllocations();
     }
-  }, [isOpen, soCreatedBy, enableTransactionalInvoice, transactionalMode]);
+  }, [isOpen, soCreatedBy, enableTransactionalInvoice, transactionalMode, ctxDefaultMarkAsDelivered]);
 
   // ── Validation ───────────────────────────────────────────────────────────────
   const step1Valid = mode === "finance"

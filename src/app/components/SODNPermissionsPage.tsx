@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ArrowLeft, Unlock, Lock, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Unlock, Lock, AlertTriangle, ArrowUpRight, Square, CheckSquare } from "lucide-react";
 import { useAppData } from "../context/AppDataContext";
 
 interface Props {
@@ -234,13 +234,15 @@ function DisableReservationModal({
   );
 }
 
-// ── Negative reservation blocked modal ────────────────────────────────────────
-function NegativeReservationBlockedModal({
+// ── Negative reservation warning modal ───────────────────────────────────────
+function NegativeReservationWarningModal({
   onNavigate,
-  onClose,
+  onConfirm,
+  onCancel,
 }: {
   onNavigate: () => void;
-  onClose: () => void;
+  onConfirm: () => void;
+  onCancel: () => void;
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-[1px]">
@@ -251,26 +253,33 @@ function NegativeReservationBlockedModal({
               <AlertTriangle className="w-5 h-5 text-amber-500" />
             </div>
             <div>
-              <h3 className="text-[15px] font-bold text-gray-900 leading-tight">Cannot Disable Negative Reservation</h3>
+              <h3 className="text-[15px] font-bold text-gray-900 leading-tight">Disable Negative Reservation?</h3>
               <p className="text-[13px] text-gray-500 mt-2 leading-relaxed">
-                Negative Reservation is required while{" "}
+                While{" "}
                 <button
                   onClick={onNavigate}
-                  className="text-indigo-600 hover:underline font-medium cursor-pointer"
+                  className="text-indigo-600 hover:underline font-medium cursor-pointer inline-flex items-center gap-0.5"
                 >
                   Allow Sales Order approval without stock
+                  <ArrowUpRight className="w-3.5 h-3.5" />
                 </button>{" "}
-                is disabled. Enabling that permission first would allow you to turn this off.
+                is disabled, turning this off may prevent users from approving Sales Orders when stock is insufficient.
               </p>
             </div>
           </div>
         </div>
-        <div className="flex justify-end px-6 py-4 bg-gray-50 border-t border-gray-100">
+        <div className="flex justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-100">
           <button
-            onClick={onClose}
+            onClick={onCancel}
             className="px-4 py-2 text-[13px] font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-white transition-colors cursor-pointer"
           >
-            Close
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="px-4 py-2 text-[13px] font-semibold text-white bg-amber-600 rounded-lg hover:bg-amber-700 transition-colors cursor-pointer"
+          >
+            Disable anyway
           </button>
         </div>
       </div>
@@ -353,11 +362,16 @@ function ReservationsTab({ onNavigateTo }: { onNavigateTo: (tab: string) => void
   const isNegativeReservationForced =
     draft.enableReservationModel && draft.reservationMode === "strict" && !allowSOApprovalWithoutStock;
 
+  const negAutoForcedRef = React.useRef(false);
   useEffect(() => {
-    if (draft.enableReservationModel && draft.reservationMode === "strict" && !allowSOApprovalWithoutStock && !draft.negativeReservation) {
+    const constrained = draft.enableReservationModel && draft.reservationMode === "strict" && !allowSOApprovalWithoutStock;
+    if (constrained && !negAutoForcedRef.current) {
+      negAutoForcedRef.current = true;
       setDraft(d => ({ ...d, negativeReservation: true }));
+    } else if (!constrained) {
+      negAutoForcedRef.current = false;
     }
-  }, [draft.enableReservationModel, draft.reservationMode, draft.negativeReservation, allowSOApprovalWithoutStock]);
+  }, [draft.enableReservationModel, draft.reservationMode, allowSOApprovalWithoutStock]);
 
   const handleSubmit = () => {
     setSaved(draft);
@@ -412,12 +426,16 @@ function ReservationsTab({ onNavigateTo }: { onNavigateTo: (tab: string) => void
         />
       )}
       {showNegBlockedModal && (
-        <NegativeReservationBlockedModal
+        <NegativeReservationWarningModal
           onNavigate={() => {
             setShowNegBlockedModal(false);
             onNavigateTo("Sales orders permissions");
           }}
-          onClose={() => setShowNegBlockedModal(false)}
+          onConfirm={() => {
+            setDraft(d => ({ ...d, negativeReservation: false }));
+            setShowNegBlockedModal(false);
+          }}
+          onCancel={() => setShowNegBlockedModal(false)}
         />
       )}
       <TabShell
@@ -430,49 +448,54 @@ function ReservationsTab({ onNavigateTo }: { onNavigateTo: (tab: string) => void
       >
         {/* Card 1 — Enable Reservation Model */}
         <div className={`bg-white border border-gray-200 rounded-[10px] px-6 mb-4 transition-colors ${draft.enableReservationModel ? "bg-indigo-50/50" : ""}`}>
-          <div className="py-5 flex items-center justify-between gap-6">
-            {/* Left: toggle + label */}
-            <div className="flex items-center gap-4">
-              <Toggle
-                checked={draft.enableReservationModel}
-                onChange={v => {
-                  if (!v) {
-                    setDisableModelStep(1);
-                  } else {
-                    setPendingChange({ kind: "enable", value: true });
-                  }
-                }}
-              />
-              <span className="text-[14px] font-bold text-gray-900">Enable Reservation Model</span>
-            </div>
+          {/* Enable toggle row */}
+          <div className="py-5 flex items-center gap-4">
+            <Toggle
+              checked={draft.enableReservationModel}
+              onChange={v => {
+                if (!v) {
+                  setDisableModelStep(1);
+                } else {
+                  setPendingChange({ kind: "enable", value: true });
+                }
+              }}
+            />
+            <span className="text-[14px] font-bold text-gray-900">Enable Reservation Model</span>
+          </div>
 
-            {/* Right: segmented mode control */}
-            <div className={`transition-opacity duration-200 ${childrenDisabled ? "opacity-40 pointer-events-none select-none" : ""}`}>
-              <div className="flex items-center bg-gray-100 rounded-[8px] p-[3px] gap-[2px]">
+          {/* Mode radio options — side by side */}
+          <div className={`border-t border-gray-100 py-4 flex gap-3 transition-opacity duration-200 ${childrenDisabled ? "opacity-40 pointer-events-none select-none" : ""}`}>
+            {(["flexible", "strict"] as const).map(mode => {
+              const selected = draft.reservationMode === mode;
+              return (
                 <button
-                  onClick={() => draft.reservationMode !== "flexible" && setPendingChange({ kind: "mode", value: "flexible" })}
-                  className={`flex items-center gap-1.5 px-4 py-1.5 rounded-[6px] text-[13px] font-medium transition-all ${
-                    draft.reservationMode === "flexible"
-                      ? "bg-white text-[#1a1a2e] shadow-sm"
-                      : "text-gray-500 hover:text-gray-700"
+                  key={mode}
+                  onClick={() => !selected && setPendingChange({ kind: "mode", value: mode })}
+                  className={`flex items-start gap-3 px-3.5 py-3 rounded-[10px] text-left transition-all ${
+                    selected ? "bg-indigo-50/60" : "hover:bg-gray-50"
                   }`}
                 >
-                  <Unlock className="w-3.5 h-3.5" />
-                  Flexible
+                  <div className={`w-4 h-4 rounded-full border-2 shrink-0 mt-0.5 flex items-center justify-center transition-colors ${selected ? "border-indigo-500" : "border-gray-300"}`}>
+                    {selected && <div className="w-2 h-2 rounded-full bg-indigo-500" />}
+                  </div>
+                  {mode === "flexible"
+                    ? <Unlock className={`w-4 h-4 shrink-0 mt-0.5 ${selected ? "text-indigo-500" : "text-gray-400"}`} />
+                    : <Lock className={`w-4 h-4 shrink-0 mt-0.5 ${selected ? "text-indigo-500" : "text-gray-400"}`} />
+                  }
+                  <div className="flex flex-col gap-0.5">
+                    <span className={`text-[13px] font-semibold ${selected ? "text-indigo-700" : "text-gray-800"}`}>
+                      {mode === "flexible" ? "Flexible" : "Strict"}
+                    </span>
+                    <span className="text-[12px] text-gray-400 leading-snug">
+                      {mode === "flexible"
+                        ? "Reservations are optional — users can skip when needed."
+                        : "Reservations are required before approving or invoicing."
+                      }
+                    </span>
+                  </div>
                 </button>
-                <button
-                  onClick={() => draft.reservationMode !== "strict" && setPendingChange({ kind: "mode", value: "strict" })}
-                  className={`flex items-center gap-1.5 px-4 py-1.5 rounded-[6px] text-[13px] font-medium transition-all ${
-                    draft.reservationMode === "strict"
-                      ? "bg-white text-[#1a1a2e] shadow-sm"
-                      : "text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  <Lock className="w-3.5 h-3.5" />
-                  Strict
-                </button>
-              </div>
-            </div>
+              );
+            })}
           </div>
         </div>
 
@@ -502,9 +525,17 @@ function ReservationsTab({ onNavigateTo }: { onNavigateTo: (tab: string) => void
               }
             }}
             note={isNegativeReservationForced ? (
-              <span className="text-[12px] text-amber-600 flex items-center gap-1">
-                <AlertTriangle className="w-3 h-3 shrink-0" />
-                Required while &ldquo;Allow Sales Order approval without stock&rdquo; is disabled.
+              <span className="text-[13px] text-amber-600 flex items-center gap-1 flex-wrap">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                Auto-enabled while{" "}
+                <button
+                  onClick={() => onNavigateTo("Sales orders permissions")}
+                  className="text-[13px] underline font-medium hover:text-amber-700 cursor-pointer inline-flex items-center gap-0.5"
+                >
+                  Allow Sales Order approval without stock
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                </button>{" "}
+                is disabled.
               </span>
             ) : undefined}
           />
@@ -593,26 +624,31 @@ function InvoicesInventoryTab() {
     setEnableTransactionalInvoice,
     transactionalMode,
     setTransactionalMode,
+    defaultMarkAsDelivered,
+    setDefaultMarkAsDelivered,
   } = useAppData();
 
   const [saved, setSaved] = useState({
     enableTransactionalInvoice,
     transactionalMode,
+    defaultMarkAsDelivered,
   });
   const [draft, setDraft] = useState({
     enableTransactionalInvoice,
     transactionalMode,
+    defaultMarkAsDelivered,
   });
 
   React.useEffect(() => {
-    setSaved({ enableTransactionalInvoice, transactionalMode });
-    setDraft({ enableTransactionalInvoice, transactionalMode });
-  }, [enableTransactionalInvoice, transactionalMode]);
+    setSaved({ enableTransactionalInvoice, transactionalMode, defaultMarkAsDelivered });
+    setDraft({ enableTransactionalInvoice, transactionalMode, defaultMarkAsDelivered });
+  }, [enableTransactionalInvoice, transactionalMode, defaultMarkAsDelivered]);
 
   const handleSubmit = () => {
     setSaved(draft);
     setEnableTransactionalInvoice(draft.enableTransactionalInvoice);
     setTransactionalMode(draft.transactionalMode);
+    setDefaultMarkAsDelivered(draft.defaultMarkAsDelivered);
   };
   const handleReset = () => setDraft(saved);
 
@@ -625,8 +661,9 @@ function InvoicesInventoryTab() {
       onSubmit={handleSubmit}
       noCard
     >
-      {/* Card 1 — Enable Transactional Invoice */}
-      <div className={`bg-white border border-gray-200 rounded-[10px] px-6 mb-4 transition-colors ${draft.enableTransactionalInvoice ? "bg-indigo-50/50" : ""}`}>
+      {/* Card — Enable Transactional Invoice */}
+      <div className={`bg-white border border-gray-200 rounded-[10px] px-6 transition-colors ${draft.enableTransactionalInvoice ? "bg-indigo-50/50" : ""}`}>
+        {/* Main enable row */}
         <div className="py-5 flex items-center justify-between gap-6">
           {/* Left: toggle + label */}
           <div className="flex items-center gap-4">
@@ -662,6 +699,40 @@ function InvoicesInventoryTab() {
             </div>
           </div>
         </div>
+
+        {/* Default mark-as-delivered row — nested inside same card */}
+        {draft.enableTransactionalInvoice && (
+          <div className={`border-t border-gray-100 py-4 flex items-center justify-between gap-6 transition-opacity duration-200 ${draft.transactionalMode === "strict" ? "opacity-40 pointer-events-none select-none" : ""}`}>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[14px] font-semibold text-gray-900">'Mark as Delivered' default state</span>
+              <span className="text-[13px] text-gray-500">Controls whether the 'Mark as Delivered' checkbox opens pre-checked or unchecked when creating or converting an invoice. Users can always change it before confirming.</span>
+            </div>
+            <div className="shrink-0 flex items-center bg-gray-100 rounded-[8px] p-[3px] gap-[2px]">
+              <button
+                onClick={() => setDraft(d => ({ ...d, defaultMarkAsDelivered: false }))}
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-[6px] text-[13px] font-medium transition-all ${
+                  !draft.defaultMarkAsDelivered
+                    ? "bg-white text-[#1a1a2e] shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                <Square className="w-3.5 h-3.5" />
+                Unchecked
+              </button>
+              <button
+                onClick={() => setDraft(d => ({ ...d, defaultMarkAsDelivered: true }))}
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-[6px] text-[13px] font-medium transition-all ${
+                  draft.defaultMarkAsDelivered
+                    ? "bg-white text-[#1a1a2e] shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                <CheckSquare className="w-3.5 h-3.5" />
+                Checked
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </TabShell>
   );

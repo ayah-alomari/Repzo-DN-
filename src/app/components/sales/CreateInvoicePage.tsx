@@ -12,18 +12,18 @@ interface CreateInvoicePageProps {
 }
 
 export function CreateInvoicePage({ onBack, onSave, onNavigateToInvoice }: CreateInvoicePageProps) {
-  const { setInvoices, enableTransactionalInvoice, transactionalMode } = useAppData();
+  const { setInvoices, enableTransactionalInvoice, transactionalMode, defaultMarkAsDelivered } = useAppData();
   const tableRef = useRef<{ addRow: () => void; addReturnRow: () => void }>({ addRow: () => {}, addReturnRow: () => {} });
   const [rep, setRep] = useState("");
   const [client, setClient] = useState("");
   const [warehouse, setWarehouse] = useState("");
 
-  const defaultIsDelivered = enableTransactionalInvoice && transactionalMode === "strict";
+  const defaultIsDelivered = enableTransactionalInvoice && (transactionalMode === "strict" || defaultMarkAsDelivered);
   const [isDelivered, setIsDelivered] = useState(defaultIsDelivered);
 
   useEffect(() => {
-    setIsDelivered(enableTransactionalInvoice && transactionalMode === "strict");
-  }, [enableTransactionalInvoice, transactionalMode]);
+    setIsDelivered(enableTransactionalInvoice && (transactionalMode === "strict" || defaultMarkAsDelivered));
+  }, [enableTransactionalInvoice, transactionalMode, defaultMarkAsDelivered]);
 
   const isCheckboxDisabled = !enableTransactionalInvoice || (enableTransactionalInvoice && transactionalMode === "strict");
 
@@ -38,7 +38,7 @@ export function CreateInvoicePage({ onBack, onSave, onNavigateToInvoice }: Creat
     setRep("");
     setClient("");
     setWarehouse("");
-    setIsDelivered(enableTransactionalInvoice && transactionalMode === "strict");
+    setIsDelivered(enableTransactionalInvoice && (transactionalMode === "strict" || defaultMarkAsDelivered));
     setClearKey(k => k + 1);
   }
 
