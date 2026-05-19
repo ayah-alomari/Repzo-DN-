@@ -46,7 +46,7 @@ interface ReservationData {
   sourceNumber: string;
   linkedDN: string | null;
   reservationType: "Stock" | "Free";
-  status: "Active" | "Revoked" | "Consumed" | "Manually Deleted";
+  status: "Active" | "Canceled" | "Revoked" | "Manually Deleted";
   createdDate: string;
 }
 
@@ -64,10 +64,10 @@ const ALL_WAREHOUSES = ["Main Branch", "Zarqaa Warehouse", "Dream Warehouse"];
 const StatusBadge = ({ status }: { status: ReservationData["status"] }) => {
   if (status === "Active")
     return <span className="inline-flex items-center px-2 py-0.5 rounded-[4px] text-[11px] font-medium bg-green-50 text-green-700 border border-green-200">Active</span>;
-  if (status === "Consumed")
-    return <span className="inline-flex items-center px-2 py-0.5 rounded-[4px] text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200">Consumed (In DN)</span>;
   if (status === "Revoked")
-    return <span className="inline-flex items-center px-2 py-0.5 rounded-[4px] text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200">Revoked</span>;
+    return <span className="inline-flex items-center px-2 py-0.5 rounded-[4px] text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200">Revoked (Delivered)</span>;
+  if (status === "Canceled")
+    return <span className="inline-flex items-center px-2 py-0.5 rounded-[4px] text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200">Canceled</span>;
   return <span className="inline-flex items-center px-2 py-0.5 rounded-[4px] text-[11px] font-medium bg-red-50 text-red-700 border border-red-200">Manually Deleted</span>;
 };
 
@@ -100,11 +100,11 @@ export default function ReservationDetailsPage({
     sourceNumber: r.sourceSOId || r.sourceInvoiceId || "—",
     linkedDN: r.linkedDNNumber || null,
     reservationType: r.type === "AUTO" ? "Stock" as const : "Free" as const,
-    status: (r.status === "ACTIVE" ? "Active" : r.status === "CONSUMED" ? "Consumed" : "Revoked") as ReservationData["status"],
+    status: (r.status === "ACTIVE" ? "Active" : r.status === "REVOKED" ? "Revoked" : "Canceled") as ReservationData["status"],
     createdDate: r.date,
   }));
 
-  const [historyEventFilter, setHistoryEventFilter] = useState<"all" | "Used in DN" | "Manually Deleted" | "Created" | "Warehouse Transfer">("all");
+  const [historyEventFilter, setHistoryEventFilter] = useState<"all" | "Used in delivery note" | "Manually Deleted" | "Created" | "Warehouse Transfer" | "Edited">("all");
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -154,7 +154,7 @@ export default function ReservationDetailsPage({
 
   const filtered = reservations.filter(r => {
     if (quickFilter === "pending" && r.status !== "Active") return false;
-    if (quickFilter === "failed" && r.status !== "Revoked") return false;
+    if (quickFilter === "failed" && r.status !== "Canceled") return false;
     if (filters.length > 0) {
       const match = filters.every(f => {
         if (!f.value) return true;
@@ -245,10 +245,11 @@ export default function ReservationDetailsPage({
 
   // ── audit log helpers (used in history tab) ──────────────────────────────
   const EVENT_COLORS: Record<ReservationAuditEntry["eventType"], string> = {
-    "Used in DN":       "bg-amber-50 text-amber-700 border-amber-200",
+    "Used in delivery note":       "bg-amber-50 text-amber-700 border-amber-200",
     "Manually Deleted": "bg-red-50 text-red-600 border-red-200",
     "Created":          "bg-green-50 text-green-700 border-green-200",
     "Warehouse Transfer": "bg-blue-50 text-blue-700 border-blue-200",
+    "Edited":             "bg-teal-50 text-teal-700 border-teal-200",
   };
   const auditQ = searchQuery.trim().toLowerCase();
   const visibleLog = reservationAuditLog.filter(e => {
@@ -352,8 +353,9 @@ export default function ReservationDetailsPage({
                             className="h-8 border border-[#e8e8ec] text-[13px] rounded-md px-2 w-full outline-none cursor-pointer">
                             <option value="">Select an option</option>
                             <option value="Active">Active</option>
-                            <option value="Revoked">Revoked</option>
+                            <option value="Canceled">Canceled</option>
                             <option value="Manually Deleted">Manually Deleted</option>
+                            <option value="Revoked">Revoked</option>
                           </select>
                         ) : f.field === "Type" ? (
                           <select value={f.value} onChange={e => updateTempFilter(f.id, "value", e.target.value)}
@@ -510,7 +512,7 @@ export default function ReservationDetailsPage({
                   </TableHead>
                   <TableHead className="text-[11px] font-medium text-[#8b8b9e] tracking-wider uppercase"><div className="flex items-center gap-2"><Menu className="w-3 h-3 text-[10px] text-[#d0d0dc]"/> CLIENT</div></TableHead>
                   <TableHead className="text-[11px] font-medium text-[#8b8b9e] tracking-wider uppercase"><div className="flex items-center gap-2"><Menu className="w-3 h-3 text-[10px] text-[#d0d0dc]"/> SOURCE</div></TableHead>
-                  <TableHead className="text-[11px] font-medium text-[#8b8b9e] tracking-wider uppercase"><div className="flex items-center gap-2"><Menu className="w-3 h-3 text-[10px] text-[#d0d0dc]"/> LINKED DN</div></TableHead>
+                  <TableHead className="text-[11px] font-medium text-[#8b8b9e] tracking-wider uppercase"><div className="flex items-center gap-2"><Menu className="w-3 h-3 text-[10px] text-[#d0d0dc]"/> LINKED DELIVERY NOTE</div></TableHead>
                   <TableHead
                     onClick={() => handleSort("Type")}
                     className="cursor-pointer select-none hover:bg-[#f5f5f7] transition-colors text-[11px] font-medium text-[#8b8b9e] tracking-wider uppercase"
@@ -625,7 +627,7 @@ export default function ReservationDetailsPage({
               Total Entries <span className="text-[#4f6ef7]">{visibleLog.length}</span>
             </p>
             <div className="flex items-center gap-2 flex-wrap">
-              {(["all", "Used in DN", "Manually Deleted", "Created", "Warehouse Transfer"] as const).map(f => (
+              {(["all", "Used in delivery note", "Manually Deleted", "Created", "Warehouse Transfer", "Edited"] as const).map(f => (
                 <button
                   key={f}
                   onClick={() => setHistoryEventFilter(f)}
@@ -658,13 +660,15 @@ export default function ReservationDetailsPage({
                     <TableHead className="px-4 py-3 text-[11px] font-semibold text-[#8b8b9e] uppercase tracking-wide whitespace-nowrap">Source</TableHead>
                     <TableHead className="px-4 py-3 text-[11px] font-semibold text-[#8b8b9e] uppercase tracking-wide whitespace-nowrap">Item</TableHead>
                     <TableHead className="px-4 py-3 text-[11px] font-semibold text-[#8b8b9e] uppercase tracking-wide whitespace-nowrap">SKU</TableHead>
+                    <TableHead className="px-4 py-3 text-[11px] font-semibold text-[#8b8b9e] uppercase tracking-wide whitespace-nowrap">Type</TableHead>
+                    <TableHead className="px-4 py-3 text-[11px] font-semibold text-[#8b8b9e] uppercase tracking-wide whitespace-nowrap">Status</TableHead>
                     <TableHead className="px-4 py-3 text-[11px] font-semibold text-[#8b8b9e] uppercase tracking-wide whitespace-nowrap text-right">Qty</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {visibleLog.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center text-[13px] text-gray-400 py-16">
+                      <TableCell colSpan={9} className="text-center text-[13px] text-gray-400 py-16">
                         No audit entries found.
                       </TableCell>
                     </TableRow>
@@ -704,6 +708,24 @@ export default function ReservationDetailsPage({
                       <TableCell className="px-4 py-3 font-medium text-[#1a1a2e] whitespace-nowrap">{entry.itemName}</TableCell>
                       {/* SKU */}
                       <TableCell className="px-4 py-3 text-[#8b8b9e] font-mono">{entry.sku}</TableCell>
+                      {/* Type */}
+                      <TableCell className="px-4 py-3">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border ${
+                          entry.reservationType === "AUTO" ? "bg-indigo-50 text-indigo-700 border-indigo-100" : "bg-gray-50 text-gray-600 border-gray-200"
+                        }`}>
+                          {entry.reservationType === "AUTO" ? "Stock" : "Manual"}
+                        </span>
+                      </TableCell>
+                      {/* Status */}
+                      <TableCell className="px-4 py-3">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border ${
+                          entry.status === "ACTIVE" ? "bg-green-50 text-green-700 border-green-200" :
+                          entry.status === "REVOKED" ? "bg-blue-50 text-blue-700 border-blue-200" :
+                          "bg-amber-50 text-amber-700 border-amber-200"
+                        }`}>
+                          {entry.status === "ACTIVE" ? "Active" : entry.status === "REVOKED" ? "Revoked" : "Canceled"}
+                        </span>
+                      </TableCell>
                       {/* Qty */}
                       <TableCell className="px-4 py-3 text-right whitespace-nowrap">
                         <div className="flex flex-col items-end">

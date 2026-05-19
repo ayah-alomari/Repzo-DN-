@@ -46,13 +46,14 @@ export interface Reservation {
   unit: string;
   qtyBase: number;
   warehouse?: string;
-  status: "ACTIVE" | "REVOKED" | "CONSUMED";
+  status: "ACTIVE" | "CANCELED" | "REVOKED";
   date: string;
   type: "AUTO" | "MANUAL";
   sourceSOId?: string;
   sourceInvoiceId?: string;
   linkedDNId?: string;
   linkedDNNumber?: string;
+  groupId?: string;
 }
 
 // Stock layout (11 warehouses):
@@ -131,7 +132,7 @@ export interface InvoiceRecord {
   balance: string;
   paymentType: string;
   status: "PENDING" | "APPROVED" | "CANCELED";
-  delivery: "No DN" | "Has DN" | "Delivered";
+  delivery: "No Delivery Note" | "Has Delivery Note" | "Delivered";
   comment: string;
   sourceSOId?: string;
   itemsData?: OrderItem[];
@@ -187,7 +188,7 @@ export interface PNItem {
 
 export interface PNRecord {
   id: string;
-  pnNumber: string;
+  rnNumber: string;
   status: PNStatus;
   sourceSOId: string;
   sourceSONumber: string;
@@ -269,8 +270,8 @@ export interface TransferRecord {
   sourceDNId?: string;
   sourceDNNumber?: string;
   sourceUnloadId?: string;
-  sourcePNId?: string;
-  sourcePNNumber?: string;
+  sourceRNId?: string;
+  sourceRNNumber?: string;
 }
 
 // ── SO audit / history log ───────────────────────────────────────────────────
@@ -284,7 +285,8 @@ export type SOAuditAction =
   | "dn_delivered"
   | "dn_canceled"
   | "reservation_created"
-  | "reservation_revoked"
+  | "reservation_canceled"
+  | "reservation_edited"
   | "converted_to_invoice"
   | "return_transfer_created"
   | "payment_marked_paid";
@@ -316,7 +318,9 @@ export interface ReservationAuditEntry {
   sourceInvoiceNumber?: string;
   linkedDNId?: string;
   linkedDNNumber?: string;
-  eventType: "Used in DN" | "Manually Deleted" | "Created" | "Warehouse Transfer";
+  reservationType: "AUTO" | "MANUAL";
+  status: "ACTIVE" | "CANCELED" | "REVOKED";
+  eventType: "Used in delivery note" | "Manually Deleted" | "Created" | "Warehouse Transfer" | "Edited";
   triggeredBy: string;
   date: string;
   time?: string;
@@ -345,18 +349,18 @@ const INITIAL_SALES_ORDERS: SalesOrderRecord[] = [
 
 const INITIAL_INVOICES: InvoiceRecord[] = [
   { id: "INV-001", serialNo: "INV-2026-001", externalSerial: "-",        issueDate: "07/04/2026", creator: "ADMIN Ayah Al-Ori",   clientName: "test 666 11717", items: 1, total: "JOD 3.75",     balance: "JOD 0.00",  paymentType: "Cash",     status: "APPROVED", delivery: "Delivered", comment: "-",                       sourceSOId: "4", itemsData: [{ id: "itm1", name: "Test Item 1", sku: "SKU-001", unit: "Piece", totalQty: 5, deliveredQty: 5, notedQty: 0, price: 0.75, tax: 0 }] },
-  { id: "INV-002", serialNo: "INV-2026-002", externalSerial: "jb_jmm",   issueDate: "07/04/2026", creator: "ADMIN M.htaht",       clientName: "test 666 11717", items: 1, total: "JOD 0.56",     balance: "JOD 0.56",  paymentType: "Credit",   status: "PENDING",  delivery: "No DN",    comment: "-",                       sourceSOId: "2", itemsData: [{ id: "itm2", name: "Test Item 2", sku: "SKU-002", unit: "Box", totalQty: 1, deliveredQty: 0, notedQty: 0, price: 0.56, tax: 0 }] },
-  { id: "INV-003", serialNo: "INV-2026-003", externalSerial: "565457554", issueDate: "07/04/2026", creator: "REP Ahmad Alshaikh",  clientName: "test 666 11717", items: 3, total: "JOD 149.50",   balance: "JOD 149.50",paymentType: "Deferred", status: "PENDING",  delivery: "Has DN",   comment: "Urgent delivery",         sourceSOId: "3", itemsData: [{ id: "itm3", name: "American Coffee", sku: "AC-500", unit: "Piece", totalQty: 10, deliveredQty: 0, notedQty: 0, price: 4.0, tax: 0 }, { id: "itm4", name: "Croissant", sku: "CR-001", unit: "Piece", totalQty: 5, deliveredQty: 0, notedQty: 0, price: 2.5, tax: 0 }, { id: "itm5", name: "Premium Pack", sku: "PP-200", unit: "Box", totalQty: 3, deliveredQty: 0, notedQty: 0, price: 32.33, tax: 0 }] },
+  { id: "INV-002", serialNo: "INV-2026-002", externalSerial: "jb_jmm",   issueDate: "07/04/2026", creator: "ADMIN M.htaht",       clientName: "test 666 11717", items: 1, total: "JOD 0.56",     balance: "JOD 0.56",  paymentType: "Credit",   status: "PENDING",  delivery: "No Delivery Note",    comment: "-",                       sourceSOId: "2", itemsData: [{ id: "itm2", name: "Test Item 2", sku: "SKU-002", unit: "Box", totalQty: 1, deliveredQty: 0, notedQty: 0, price: 0.56, tax: 0 }] },
+  { id: "INV-003", serialNo: "INV-2026-003", externalSerial: "565457554", issueDate: "07/04/2026", creator: "REP Ahmad Alshaikh",  clientName: "test 666 11717", items: 3, total: "JOD 149.50",   balance: "JOD 149.50",paymentType: "Deferred", status: "PENDING",  delivery: "Has Delivery Note",   comment: "Urgent delivery",         sourceSOId: "3", itemsData: [{ id: "itm3", name: "American Coffee", sku: "AC-500", unit: "Piece", totalQty: 10, deliveredQty: 0, notedQty: 0, price: 4.0, tax: 0 }, { id: "itm4", name: "Croissant", sku: "CR-001", unit: "Piece", totalQty: 5, deliveredQty: 0, notedQty: 0, price: 2.5, tax: 0 }, { id: "itm5", name: "Premium Pack", sku: "PP-200", unit: "Box", totalQty: 3, deliveredQty: 0, notedQty: 0, price: 32.33, tax: 0 }] },
   { id: "INV-004", serialNo: "INV-2026-004", externalSerial: "-",        issueDate: "06/04/2026", creator: "ADMIN Yousef1",       clientName: "Karak Tes",      items: 4, total: "JOD 4.35",     balance: "JOD 0.00",  paymentType: "Cash",     status: "APPROVED", delivery: "Delivered", comment: "-",                       sourceSOId: "9", itemsData: [] },
-  { id: "INV-005", serialNo: "INV-2026-005", externalSerial: "hh",       issueDate: "06/04/2026", creator: "REP Ahmad Alshaikh",  clientName: "test 666 11717", items: 1, total: "JOD 0.75",     balance: "JOD 0.75",  paymentType: "Credit",   status: "PENDING",  delivery: "No DN",    comment: "-",                       sourceSOId: "6", itemsData: [] },
+  { id: "INV-005", serialNo: "INV-2026-005", externalSerial: "hh",       issueDate: "06/04/2026", creator: "REP Ahmad Alshaikh",  clientName: "test 666 11717", items: 1, total: "JOD 0.75",     balance: "JOD 0.75",  paymentType: "Credit",   status: "PENDING",  delivery: "No Delivery Note",    comment: "-",                       sourceSOId: "6", itemsData: [] },
   { id: "INV-006", serialNo: "INV-2026-006", externalSerial: "-",        issueDate: "01/02/2026", creator: "REP khaled",          clientName: "99ik",           items: 2, total: "JOD 2,596.81", balance: "JOD 0.00",  paymentType: "Cash",     status: "APPROVED", delivery: "Delivered", comment: "Paid on time",            sourceSOId: "7", itemsData: [] },
-  { id: "INV-007", serialNo: "INV-2026-007", externalSerial: "-",        issueDate: "12/01/2026", creator: "REP khaled",          clientName: "new m2",         items: 1, total: "JOD 10.80",    balance: "JOD 5.40",  paymentType: "Deferred", status: "PENDING",  delivery: "Has DN",   comment: "Partial payment received", sourceSOId: "8", itemsData: [] },
-  { id: "INV-008", serialNo: "INV-2026-008", externalSerial: "sdfsdf",   issueDate: "06/04/2026", creator: "ADMIN Yousef1",       clientName: "Gaza",           items: 2, total: "JOD 8.00",     balance: "JOD 8.00",  paymentType: "Credit",   status: "CANCELED", delivery: "No DN",    comment: "Client requested cancellation", sourceSOId: "1", itemsData: [] },
+  { id: "INV-007", serialNo: "INV-2026-007", externalSerial: "-",        issueDate: "12/01/2026", creator: "REP khaled",          clientName: "new m2",         items: 1, total: "JOD 10.80",    balance: "JOD 5.40",  paymentType: "Deferred", status: "PENDING",  delivery: "Has Delivery Note",   comment: "Partial payment received", sourceSOId: "8", itemsData: [] },
+  { id: "INV-008", serialNo: "INV-2026-008", externalSerial: "sdfsdf",   issueDate: "06/04/2026", creator: "ADMIN Yousef1",       clientName: "Gaza",           items: 2, total: "JOD 8.00",     balance: "JOD 8.00",  paymentType: "Credit",   status: "CANCELED", delivery: "No Delivery Note",    comment: "Client requested cancellation", sourceSOId: "1", itemsData: [] },
 ];
 
 const INITIAL_DN_LIST: DNRecord[] = [
-  { id: "dn-khaled-new", dnNumber: "DN-KHALED-WAIT", status: "PENDING", clientName: "test 666 11717", rep: "REP khaled", createdBy: "Admin", warehouse: "Main Branch", items: 1, createdDate: "06/05/2026", adminTransfer: "NONE", repTransfer: "NONE", isManual: true, itemsData: [{ id: "p11-itm1", name: "American Coffee", sku: "AC-500", qty: 2, unit: "Piece", qtyBase: 2, delivered: 0, warehouse: "Main Branch" }] },
-  { id: "dn-khaled-new-2", dnNumber: "DN-KHALED-WAIT-2", status: "PENDING", clientName: "test 666 11717", rep: "REP khaled", createdBy: "Admin", warehouse: "Main Branch", items: 2, createdDate: "06/05/2026", adminTransfer: "NONE", repTransfer: "NONE", isManual: true, itemsData: [{ id: "p11-itm2", name: "Croissant", sku: "CR-001", qty: 1, unit: "Box", qtyBase: 1, delivered: 0, warehouse: "Main Branch" }] },
+  { id: "dn-khaled-new", dnNumber: "DN-KHALED-WAIT", status: "PENDING", clientName: "test 666 11717", rep: "REP khaled", createdBy: "Admin", warehouse: "Main Branch", items: 1, createdDate: "06/05/2026", adminTransfer: "NONE", repTransfer: "NONE", isManual: true, itemsData: [{ id: "p11-itm1", name: "American Coffee", sku: "AC-500", qty: 2, unit: "Piece", qtyBase: 2, soQty: 2, soUnit: "Piece", delivered: 0, warehouse: "Main Branch" }] },
+  { id: "dn-khaled-new-2", dnNumber: "DN-KHALED-WAIT-2", status: "PENDING", clientName: "test 666 11717", rep: "REP khaled", createdBy: "Admin", warehouse: "Main Branch", items: 2, createdDate: "06/05/2026", adminTransfer: "NONE", repTransfer: "NONE", isManual: true, itemsData: [{ id: "p11-itm2", name: "Croissant", sku: "CR-001", qty: 1, unit: "Box", qtyBase: 1, soQty: 1, soUnit: "Box", delivered: 0, warehouse: "Main Branch" }] },
   { id: "dn-1",  dnNumber: "DN-ADM-0041", status: "PENDING",    sourceSOId: "1",  sourceSONumber: "PRO-ADM-2182", clientName: "Gaza",           rep: "ADMIN Yousef1",       createdBy: "ADMIN Yousef1",    warehouse: "Main Branch",    items: 1, createdDate: "08/04/2026", adminTransfer: "NONE", repTransfer: "NONE", itemsData: [{ id: "itm1", name: "American Coffee", sku: "AC-500", qty: 5, unit: "Piece", qtyBase: 5, soQty: 10, soUnit: "Piece", delivered: 0, warehouse: "Main Branch" }] },
   { id: "dn-2",  dnNumber: "DN-1734-18",  status: "PROCESSING", sourceSOId: "2",  sourceSONumber: "PRO-1734-91",  clientName: "test 666 11717", rep: "REP Ahmad Alshaikh",  createdBy: "ADMIN Ayah Al-Ori", warehouse: "Zarqaa Warehouse", items: 1, createdDate: "07/04/2026", adminTransfer: "DONE", repTransfer: "CONFIRMED", itemsData: [{ id: "itm2", name: "Croissant", sku: "CR-001", qty: 1, unit: "Box", qtyBase: 6, soQty: 8, soUnit: "Piece", delivered: 0, warehouse: "Dream Warehouse" }] },
   { id: "dn-3",  dnNumber: "DN-1734-17",  status: "APPROVED",   sourceSOId: "3",  sourceSONumber: "PRO-1734-90",  clientName: "test 666 11717", rep: "REP Ahmad Alshaikh",  createdBy: "ADMIN Ayah Al-Ori", warehouse: "Main Branch",    items: 3, createdDate: "07/04/2026", adminTransfer: "DONE", repTransfer: "CONFIRMED", itemsData: [{ id: "itm1", name: "American Coffee", sku: "AC-500", qty: 1, unit: "Carton", qtyBase: 24, soQty: 48, soUnit: "Piece", delivered: 24, warehouse: "Zarqaa Warehouse" }] },
@@ -378,11 +382,11 @@ const INITIAL_UNLOAD_LIST: UnloadRecord[] = [
 ];
 
 const INITIAL_PN_LIST: PNRecord[] = [
-  { id: "PN-001", pnNumber: "PN-001", status: "PENDING", sourceSOId: "PRO-1734-88", sourceSONumber: "PRO-1734-88", sourceDNs: [{ id: "DN-ADM-0041", number: "DN-ADM-0041" }], invoiceNumber: "INV-2026-001", clientName: "test 666 11717", rep: "Ahmad Alshaikh", createdBy: "Ahmad Alshaikh", warehouse: "Main Branch", destinationWarehouse: "Main Warehouse", items: 2, reservedCount: 2, createdDate: "08/04/2026", inRepVan: false, creditNoteStatus: "Pending", invoicePaymentStatus: "Paid", repConfirmed: false, adminConfirmed: false, itemsData: [{ id: "itm1", name: "American Coffe", sku: "AC-500", unit: "Piece", deliveredQty: 5, returnQty: 2, status: "Reserved", condition: "Resellable" }] },
-  { id: "PN-002", pnNumber: "PN-002", status: "PROCESSING", sourceSOId: "PRO-1734-87", sourceSONumber: "PRO-1734-87", sourceDNs: [{ id: "DN-1734-18", number: "DN-1734-18" }], invoiceNumber: "INV-2026-002", clientName: "Karak Test", rep: "REP khaled", createdBy: "REP khaled", warehouse: "Zarqaa Warehouse", destinationWarehouse: "Rep Van", destinationRep: "REP khaled", items: 1, reservedCount: 1, createdDate: "07/04/2026", inRepVan: true, creditNoteStatus: "N/A", invoicePaymentStatus: "Unpaid", repConfirmed: true, adminConfirmed: false, itemsData: [{ id: "itm2", name: "Croissant", sku: "CR-001", unit: "Box", deliveredQty: 3, returnQty: 3, status: "Reserved", condition: "Damaged" }] },
-  { id: "PN-003", pnNumber: "PN-003", status: "RECEIVED", sourceSOId: "PRO-1545-693", sourceSONumber: "PRO-1545-693", sourceDNs: [{ id: "DN-1545-22", number: "DN-1545-22" }, { id: "DN-1545-21", number: "DN-1545-21" }], invoiceNumber: "INV-2026-003", clientName: "99ik", rep: "REP khaled", createdBy: "ADMIN Yousef1", warehouse: "Khald Warehouse", destinationWarehouse: "Main Warehouse", items: 3, reservedCount: 3, createdDate: "01/02/2026", inRepVan: false, creditNoteStatus: "Issued", invoicePaymentStatus: "Partially Paid", repConfirmed: true, adminConfirmed: true, itemsData: [] },
-  { id: "PN-004", pnNumber: "PN-004", status: "CANCELED", sourceSOId: "PRO-1545-692", sourceSONumber: "PRO-1545-692", sourceDNs: [{ id: "DN-1545-21", number: "DN-1545-21" }], invoiceNumber: "INV-2026-004", clientName: "new m2", rep: "REP Ahmad Abudre", createdBy: "REP Ahmad Abudre", warehouse: "Dream Warehouse", destinationWarehouse: "Main Warehouse", items: 1, reservedCount: 0, createdDate: "12/01/2026", inRepVan: false, creditNoteStatus: "N/A", invoicePaymentStatus: "Unpaid", repConfirmed: false, adminConfirmed: false, itemsData: [] },
-  { id: "PN-005", pnNumber: "PN-005", status: "PENDING", sourceSOId: "PRO-ADM-2179", sourceSONumber: "PRO-ADM-2179", sourceDNs: [{ id: "DN-ADM-0040", number: "DN-ADM-0040" }], invoiceNumber: "INV-2026-005", clientName: "Karak Tes", rep: "ADMIN Yousef1", createdBy: "ADMIN Yousef1", warehouse: "Main Branch", destinationWarehouse: "Rep Van", destinationRep: "ADMIN Yousef1", items: 4, reservedCount: 4, createdDate: "06/04/2026", inRepVan: true, creditNoteStatus: "Pending", invoicePaymentStatus: "Paid", repConfirmed: false, adminConfirmed: false, itemsData: [] },
+  { id: "RN-001", rnNumber: "RN-001", status: "PENDING", sourceSOId: "PRO-1734-88", sourceSONumber: "PRO-1734-88", sourceDNs: [{ id: "DN-ADM-0041", number: "DN-ADM-0041" }], invoiceNumber: "INV-2026-001", clientName: "test 666 11717", rep: "Ahmad Alshaikh", createdBy: "Ahmad Alshaikh", warehouse: "Main Branch", destinationWarehouse: "Main Warehouse", items: 2, reservedCount: 2, createdDate: "08/04/2026", inRepVan: false, creditNoteStatus: "Pending", invoicePaymentStatus: "Paid", repConfirmed: false, adminConfirmed: false, itemsData: [{ id: "itm1", name: "American Coffe", sku: "AC-500", unit: "Piece", deliveredQty: 5, returnQty: 2, status: "Reserved", condition: "Resellable" }] },
+  { id: "RN-002", rnNumber: "RN-002", status: "PROCESSING", sourceSOId: "PRO-1734-87", sourceSONumber: "PRO-1734-87", sourceDNs: [{ id: "DN-1734-18", number: "DN-1734-18" }], invoiceNumber: "INV-2026-002", clientName: "Karak Test", rep: "REP khaled", createdBy: "REP khaled", warehouse: "Zarqaa Warehouse", destinationWarehouse: "Rep Van", destinationRep: "REP khaled", items: 1, reservedCount: 1, createdDate: "07/04/2026", inRepVan: true, creditNoteStatus: "N/A", invoicePaymentStatus: "Unpaid", repConfirmed: true, adminConfirmed: false, itemsData: [{ id: "itm2", name: "Croissant", sku: "CR-001", unit: "Box", deliveredQty: 3, returnQty: 3, status: "Reserved", condition: "Damaged" }] },
+  { id: "RN-003", rnNumber: "RN-003", status: "RECEIVED", sourceSOId: "PRO-1545-693", sourceSONumber: "PRO-1545-693", sourceDNs: [{ id: "DN-1545-22", number: "DN-1545-22" }, { id: "DN-1545-21", number: "DN-1545-21" }], invoiceNumber: "INV-2026-003", clientName: "99ik", rep: "REP khaled", createdBy: "ADMIN Yousef1", warehouse: "Khald Warehouse", destinationWarehouse: "Main Warehouse", items: 3, reservedCount: 3, createdDate: "01/02/2026", inRepVan: false, creditNoteStatus: "Issued", invoicePaymentStatus: "Partially Paid", repConfirmed: true, adminConfirmed: true, itemsData: [] },
+  { id: "RN-004", rnNumber: "RN-004", status: "CANCELED", sourceSOId: "PRO-1545-692", sourceSONumber: "PRO-1545-692", sourceDNs: [{ id: "DN-1545-21", number: "DN-1545-21" }], invoiceNumber: "INV-2026-004", clientName: "new m2", rep: "REP Ahmad Abudre", createdBy: "REP Ahmad Abudre", warehouse: "Dream Warehouse", destinationWarehouse: "Main Warehouse", items: 1, reservedCount: 0, createdDate: "12/01/2026", inRepVan: false, creditNoteStatus: "N/A", invoicePaymentStatus: "Unpaid", repConfirmed: false, adminConfirmed: false, itemsData: [] },
+  { id: "RN-005", rnNumber: "RN-005", status: "PENDING", sourceSOId: "PRO-ADM-2179", sourceSONumber: "PRO-ADM-2179", sourceDNs: [{ id: "DN-ADM-0040", number: "DN-ADM-0040" }], invoiceNumber: "INV-2026-005", clientName: "Karak Tes", rep: "ADMIN Yousef1", createdBy: "ADMIN Yousef1", warehouse: "Main Branch", destinationWarehouse: "Rep Van", destinationRep: "ADMIN Yousef1", items: 4, reservedCount: 4, createdDate: "06/04/2026", inRepVan: true, creditNoteStatus: "Pending", invoicePaymentStatus: "Paid", repConfirmed: false, adminConfirmed: false, itemsData: [] },
 ];
 
 const INITIAL_TRANSFER_LIST: TransferRecord[] = [
@@ -398,7 +402,7 @@ const INITIAL_TRANSFER_LIST: TransferRecord[] = [
     createdBy: "Ayah Al-Omari", from: "مستودع الكوم الرئيسي", to: "Dream Warehouse",
     type: "LOAD", status: "COMPLETED", processTime: "2026-04-16 12:24 PM", numberOfProducts: 1, comment: "",
     items: [{ id: "ti-2", productId: "p-chocolate", sku: "PC-001", productName: "pink chocolate", variantName: "pink chocolate 6 cubes", measureUnit: "Piece", quantity: 144, originQty: 0, destQty: 144 }],
-    sourcePNId: "PN-002", sourcePNNumber: "PN-002",
+    sourceRNId: "RN-002", sourceRNNumber: "RN-002",
   },
   {
     id: "TRN-ADM-1505", serialNo: "TRN-ADM-1505", createdAt: "2026-04-13 9:54 AM",
@@ -411,20 +415,20 @@ const INITIAL_TRANSFER_LIST: TransferRecord[] = [
     sourceUnloadId: "UNL-002",
   },
   // DN-linked transfers
-  { id: "TRN-DN-001", serialNo: "TRN-DN-001", createdAt: "2026-04-08 10:00 AM", createdBy: "ADMIN Yousef1", from: "Main Branch", to: "Rep Van", type: "LOAD", status: "PENDING", numberOfProducts: 1, comment: "", items: [{ id: "ti-dn1-1", productId: "itm1", sku: "AC-500", productName: "American Coffee", variantName: "American Coffee 1kg", measureUnit: "Piece", quantity: 5, originQty: 5, destQty: 0 }], sourceDNId: "dn-1", sourceDNNumber: "DN-ADM-0041" },
-  { id: "TRN-DN-003", serialNo: "TRN-DN-003", createdAt: "2026-04-07 11:00 AM", createdBy: "ADMIN Ayah Al-Ori", from: "Main Branch", to: "Local Maram Van Warehouse", type: "LOAD", status: "COMPLETED", processTime: "2026-04-07 2:00 PM", numberOfProducts: 3, comment: "", items: [{ id: "ti-dn3-1", productId: "itm1", sku: "AC-500", productName: "American Coffee", variantName: "American Coffee 1kg", measureUnit: "Carton", quantity: 1, originQty: 1, destQty: 1 }], sourceDNId: "dn-3", sourceDNNumber: "DN-1734-17" },
-  { id: "TRN-DN-005", serialNo: "TRN-DN-005", createdAt: "2026-04-07 10:00 AM", createdBy: "REP Ahmad Alshaikh", from: "Main Branch", to: "Local Maram Van Warehouse", type: "LOAD", status: "COMPLETED", processTime: "2026-04-07 1:00 PM", numberOfProducts: 2, comment: "", items: [{ id: "ti-dn5-1", productId: "itm1", sku: "AC-500", productName: "American Coffee", variantName: "American Coffee 1kg", measureUnit: "Piece", quantity: 2, originQty: 2, destQty: 2 }], sourceDNId: "dn-5", sourceDNNumber: "DN-1734-15" },
-  { id: "TRN-DN-006", serialNo: "TRN-DN-006", createdAt: "2026-04-06 09:00 AM", createdBy: "ADMIN Yousef1", from: "Zarqaa Warehouse", to: "Rep Van", type: "LOAD", status: "PENDING", numberOfProducts: 4, comment: "", items: [{ id: "ti-dn6-1", productId: "itm1", sku: "AC-500", productName: "American Coffee", variantName: "American Coffee 1kg", measureUnit: "Piece", quantity: 4, originQty: 4, destQty: 0 }], sourceDNId: "dn-6", sourceDNNumber: "DN-ADM-0040" },
-  { id: "TRN-DN-007", serialNo: "TRN-DN-007", createdAt: "2026-02-01 11:00 AM", createdBy: "ADMIN Maram Alsl", from: "Dream Warehouse", to: "Khald Warehouse", type: "LOAD", status: "PENDING", numberOfProducts: 1, comment: "", items: [{ id: "ti-dn7-1", productId: "itm2", sku: "CR-001", productName: "Croissant", variantName: "Croissant Plain", measureUnit: "Piece", quantity: 2, originQty: 2, destQty: 0 }], sourceDNId: "dn-7", sourceDNNumber: "DN-1545-22" },
-  { id: "TRN-DN-008", serialNo: "TRN-DN-008", createdAt: "2026-01-12 10:00 AM", createdBy: "REP khaled", from: "Main Branch", to: "Khald Warehouse", type: "LOAD", status: "PENDING", numberOfProducts: 1, comment: "", items: [{ id: "ti-dn8-1", productId: "itm1", sku: "AC-500", productName: "American Coffee", variantName: "American Coffee 1kg", measureUnit: "Piece", quantity: 6, originQty: 6, destQty: 0 }], sourceDNId: "dn-8", sourceDNNumber: "DN-1545-21" },
-  { id: "TRN-DN-009", serialNo: "TRN-DN-009", createdAt: "2026-04-06 08:00 AM", createdBy: "ADMIN Ayah Al-Ori", from: "Zarqaa Warehouse", to: "Van مستودع الكوم", type: "LOAD", status: "COMPLETED", processTime: "2026-04-06 12:00 PM", numberOfProducts: 2, comment: "", items: [{ id: "ti-dn9-1", productId: "itm2", sku: "CR-001", productName: "Croissant", variantName: "Croissant Plain", measureUnit: "Piece", quantity: 5, originQty: 5, destQty: 5 }], sourceDNId: "dn-9", sourceDNNumber: "DN-1555-09" },
+  { id: "TRN-DN-001", serialNo: "TRN-DN-001", createdAt: "2026-04-08 10:00 AM", createdBy: "ADMIN Yousef1", from: "Main Branch", to: "ADMIN Yousef1 Van Warehouse", type: "LOAD", status: "PENDING", numberOfProducts: 1, comment: "", items: [{ id: "ti-dn1-1", productId: "itm1", sku: "AC-500", productName: "American Coffee", variantName: "American Coffee 1kg", measureUnit: "Piece", quantity: 5, originQty: 5, destQty: 0 }], sourceDNId: "dn-1", sourceDNNumber: "DN-ADM-0041" },
+  { id: "TRN-DN-003", serialNo: "TRN-DN-003", createdAt: "2026-04-07 11:00 AM", createdBy: "ADMIN Ayah Al-Ori", from: "Main Branch", to: "REP Ahmad Alshaikh Van Warehouse", type: "LOAD", status: "COMPLETED", processTime: "2026-04-07 2:00 PM", numberOfProducts: 3, comment: "", items: [{ id: "ti-dn3-1", productId: "itm1", sku: "AC-500", productName: "American Coffee", variantName: "American Coffee 1kg", measureUnit: "Carton", quantity: 1, originQty: 1, destQty: 1 }], sourceDNId: "dn-3", sourceDNNumber: "DN-1734-17" },
+  { id: "TRN-DN-005", serialNo: "TRN-DN-005", createdAt: "2026-04-07 10:00 AM", createdBy: "REP Ahmad Alshaikh", from: "Main Branch", to: "REP Ahmad Alshaikh Van Warehouse", type: "LOAD", status: "COMPLETED", processTime: "2026-04-07 1:00 PM", numberOfProducts: 2, comment: "", items: [{ id: "ti-dn5-1", productId: "itm1", sku: "AC-500", productName: "American Coffee", variantName: "American Coffee 1kg", measureUnit: "Piece", quantity: 2, originQty: 2, destQty: 2 }], sourceDNId: "dn-5", sourceDNNumber: "DN-1734-15" },
+  { id: "TRN-DN-006", serialNo: "TRN-DN-006", createdAt: "2026-04-06 09:00 AM", createdBy: "ADMIN Yousef1", from: "Zarqaa Warehouse", to: "ADMIN Yousef1 Van Warehouse", type: "LOAD", status: "PENDING", numberOfProducts: 4, comment: "", items: [{ id: "ti-dn6-1", productId: "itm1", sku: "AC-500", productName: "American Coffee", variantName: "American Coffee 1kg", measureUnit: "Piece", quantity: 4, originQty: 4, destQty: 0 }], sourceDNId: "dn-6", sourceDNNumber: "DN-ADM-0040" },
+  { id: "TRN-DN-007", serialNo: "TRN-DN-007", createdAt: "2026-02-01 11:00 AM", createdBy: "ADMIN Maram Alsl", from: "Dream Warehouse", to: "REP khaled Van Warehouse", type: "LOAD", status: "PENDING", numberOfProducts: 1, comment: "", items: [{ id: "ti-dn7-1", productId: "itm2", sku: "CR-001", productName: "Croissant", variantName: "Croissant Plain", measureUnit: "Piece", quantity: 2, originQty: 2, destQty: 0 }], sourceDNId: "dn-7", sourceDNNumber: "DN-1545-22" },
+  { id: "TRN-DN-008", serialNo: "TRN-DN-008", createdAt: "2026-01-12 10:00 AM", createdBy: "REP khaled", from: "Main Branch", to: "REP khaled Van Warehouse", type: "LOAD", status: "PENDING", numberOfProducts: 1, comment: "", items: [{ id: "ti-dn8-1", productId: "itm1", sku: "AC-500", productName: "American Coffee", variantName: "American Coffee 1kg", measureUnit: "Piece", quantity: 6, originQty: 6, destQty: 0 }], sourceDNId: "dn-8", sourceDNNumber: "DN-1545-21" },
+  { id: "TRN-DN-009", serialNo: "TRN-DN-009", createdAt: "2026-04-06 08:00 AM", createdBy: "ADMIN Ayah Al-Ori", from: "Zarqaa Warehouse", to: "REP Ahmad Abudre Van Warehouse", type: "LOAD", status: "COMPLETED", processTime: "2026-04-06 12:00 PM", numberOfProducts: 2, comment: "", items: [{ id: "ti-dn9-1", productId: "itm2", sku: "CR-001", productName: "Croissant", variantName: "Croissant Plain", measureUnit: "Piece", quantity: 5, originQty: 5, destQty: 5 }], sourceDNId: "dn-9", sourceDNNumber: "DN-1555-09" },
 
 ];
 
 const INITIAL_RESERVATIONS: Reservation[] = [
   { id: "RES-001", itemName: "Wireless Headphones Pro", itemId: "itm1", qty: 10, unit: "PCS", qtyBase: 10, warehouse: "Main Branch", status: "ACTIVE", date: "2026-04-01", type: "AUTO" },
   { id: "RES-002", itemName: "USB-C Charging Cable", itemId: "itm2", qty: 50, unit: "PCS", qtyBase: 50, warehouse: "Zarqaa Warehouse", status: "ACTIVE", date: "2026-04-02", type: "MANUAL" },
-  { id: "RES-003", itemName: "Laptop Stand Aluminum", itemId: "itm3", qty: 5, unit: "PCS", qtyBase: 5, warehouse: "Main Branch", status: "REVOKED", date: "2026-03-28", type: "AUTO" },
+  { id: "RES-003", itemName: "Laptop Stand Aluminum", itemId: "itm3", qty: 5, unit: "PCS", qtyBase: 5, warehouse: "Main Branch", status: "CANCELED", date: "2026-03-28", type: "AUTO" },
 ];
 
 const INITIAL_RESERVATION_AUDIT_LOG: ReservationAuditEntry[] = [
@@ -438,11 +442,13 @@ const INITIAL_RESERVATION_AUDIT_LOG: ReservationAuditEntry[] = [
     warehouse: "Main Branch",
     linkedDNId: "dn-3",
     linkedDNNumber: "DN-1734-17",
-    eventType: "Used in DN",
+    eventType: "Used in delivery note",
     triggeredBy: "ADMIN Ayah Al-Ori",
     date: "2026-03-28",
     time: "10:14 AM",
-    note: "Reservation consumed when DN was created",
+    reservationType: "AUTO",
+    status: "REVOKED",
+    note: "Reservation consumed when delivery note was created",
   },
 ];
 
@@ -465,12 +471,22 @@ interface AppDataContextValue {
   setCycle: React.Dispatch<React.SetStateAction<number>>;
   paymentStatus: "PAID" | "UNPAID" | null;
   setPaymentStatus: React.Dispatch<React.SetStateAction<"PAID" | "UNPAID" | null>>;
+  enableReservationModel: boolean;
+  setEnableReservationModel: React.Dispatch<React.SetStateAction<boolean>>;
+  reservationMode: "flexible" | "strict";
+  setReservationMode: React.Dispatch<React.SetStateAction<"flexible" | "strict">>;
   allowMultiWarehouseReservation: boolean;
   setAllowMultiWarehouseReservation: React.Dispatch<React.SetStateAction<boolean>>;
   allowSOApprovalWithoutStock: boolean;
   setAllowSOApprovalWithoutStock: React.Dispatch<React.SetStateAction<boolean>>;
   allowNegativeReservation: boolean;
   setAllowNegativeReservation: React.Dispatch<React.SetStateAction<boolean>>;
+  preventInvoiceReservations: boolean;
+  setPreventInvoiceReservations: React.Dispatch<React.SetStateAction<boolean>>;
+  enableTransactionalInvoice: boolean;
+  setEnableTransactionalInvoice: React.Dispatch<React.SetStateAction<boolean>>;
+  transactionalMode: "optional" | "strict";
+  setTransactionalMode: React.Dispatch<React.SetStateAction<"optional" | "strict">>;
 
   // global list data
   salesOrders: SalesOrderRecord[];
@@ -504,9 +520,14 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [approvalStep, setApprovalStep] = useState(0);
   const [cycle, setCycle] = useState(1);
   const [paymentStatus, setPaymentStatus] = useState<"PAID" | "UNPAID" | null>(null);
+  const [enableReservationModel, setEnableReservationModel] = useState(true);
+  const [reservationMode, setReservationMode] = useState<"flexible" | "strict">("flexible");
   const [allowMultiWarehouseReservation, setAllowMultiWarehouseReservation] = useState(false);
   const [allowSOApprovalWithoutStock, setAllowSOApprovalWithoutStock] = useState(true);
   const [allowNegativeReservation, setAllowNegativeReservation] = useState(false);
+  const [preventInvoiceReservations, setPreventInvoiceReservations] = useState(false);
+  const [enableTransactionalInvoice, setEnableTransactionalInvoice] = useState(true);
+  const [transactionalMode, setTransactionalMode] = useState<"optional" | "strict">("optional");
 
   const [salesOrders, setSalesOrders] = useState<SalesOrderRecord[]>(() => INITIAL_SALES_ORDERS.map(o => ({ ...o })));
   const [invoices, setInvoices] = useState<InvoiceRecord[]>(() => INITIAL_INVOICES.map(i => ({ ...i })));
@@ -526,8 +547,6 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     setApprovalStep(0);
     setCycle(1);
     setPaymentStatus(null);
-    setAllowMultiWarehouseReservation(false);
-    setAllowSOApprovalWithoutStock(true);
     setSalesOrders(INITIAL_SALES_ORDERS.map(o => ({ ...o })));
     setInvoices(INITIAL_INVOICES.map(i => ({ ...i })));
     setDnList(INITIAL_DN_LIST.map(d => ({ ...d })));
@@ -536,6 +555,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     setTransferList(INITIAL_TRANSFER_LIST.map(t => ({ ...t })));
     setReservationAuditLog([...INITIAL_RESERVATION_AUDIT_LOG]);
     setSOAuditLog([]);
+    setEnableTransactionalInvoice(true);
+    setTransactionalMode("optional");
   };
 
   return (
@@ -548,9 +569,14 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       approvalStep, setApprovalStep,
       cycle, setCycle,
       paymentStatus, setPaymentStatus,
+      enableReservationModel, setEnableReservationModel,
+      reservationMode, setReservationMode,
       allowMultiWarehouseReservation, setAllowMultiWarehouseReservation,
       allowSOApprovalWithoutStock, setAllowSOApprovalWithoutStock,
       allowNegativeReservation, setAllowNegativeReservation,
+      preventInvoiceReservations, setPreventInvoiceReservations,
+      enableTransactionalInvoice, setEnableTransactionalInvoice,
+      transactionalMode, setTransactionalMode,
       salesOrders, setSalesOrders,
       invoices, setInvoices,
       dnList, setDnList,

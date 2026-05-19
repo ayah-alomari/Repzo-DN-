@@ -20,14 +20,14 @@ interface SettingsCardData {
 const CARDS: SettingsCardData[] = [
   {
     id: "so-dn",
-    title: "SO and DN Settings",
+    title: "SO and Delivery Note Settings",
     icon: <ClipboardList className="w-5 h-5 text-indigo-600" />,
     iconBg: "bg-indigo-50 border border-indigo-100",
     items: [
       "Sales orders permissions",
       "Delivery Notes permissions",
-      "DN Unloads permissions",
-      "Pickup Note permissions",
+      "Delivery Note Unloads permissions",
+      "Return Note permissions",
       "Reservations permissions",
       "Transfers permissions",
       "Invoices & Inventory permissions",

@@ -5,11 +5,7 @@ import { Badge } from "../ui/badge";
 import { useAppData } from "../../context/AppDataContext";
 import { EditDeliveryNoteModal } from "./EditDeliveryNoteModal";
 
-const REP_VAN_WAREHOUSES: Record<string, string> = {
-  "Ahmad Alshaikh":   "Local Maram Van Warehouse",
-  "REP khaled":       "Khald Warehouse",
-  "REP Ahmad Abudre": "Van مستودع الكوم",
-};
+const getRepVanWarehouse = (rep: string) => `${rep} Van Warehouse`;
 
 interface DeliveryNoteDetailsPageProps {
   dnId: string | null;
@@ -114,8 +110,11 @@ export function DeliveryNoteDetailsPage({ dnId, onBack, onNavigateToSO, onNaviga
     dnList, setDnList,
     orderItems,
     setPnList,
-    transferList,
+    transferList, setTransferList,
     salesOrders, setSalesOrders,
+    reservations, setReservations,
+    setReservationAuditLog,
+    setOrderItems,
   } = useAppData();
 
   const record = dnList.find(d => d.id === dnId || d.dnNumber === dnId);
@@ -126,7 +125,7 @@ export function DeliveryNoteDetailsPage({ dnId, onBack, onNavigateToSO, onNaviga
   // Tab state must live before any early return (Rules of Hooks)
   const SELF_TYPE = "dn";
   const selfId = dnId ?? "dn";
-  const selfLabel = dn?.id ?? dnId ?? "DN";
+  const selfLabel = dn?.id ?? dnId ?? "Delivery Note";
   type InnerTab = { type: string; id: string; label: string };
   const SELF_TAB: InnerTab = { type: SELF_TYPE, id: selfId, label: selfLabel };
   const [innerTabs, setInnerTabs] = useState<InnerTab[]>([SELF_TAB]);
@@ -212,21 +211,71 @@ export function DeliveryNoteDetailsPage({ dnId, onBack, onNavigateToSO, onNaviga
     };
   });
 
+  const applyVanWarehouseToReservations = () => {
+    const vanWh = getRepVanWarehouse(dn.rep);
+    const now = new Date();
+    const linked = reservations.filter(
+      r => (r.linkedDNId === dn.id || r.linkedDNId === dn.dnNumber) && r.status === "ACTIVE"
+    );
+    if (linked.length === 0) return;
+    setReservations(prev => prev.map(r =>
+      linked.some(l => l.id === r.id) ? { ...r, warehouse: vanWh } : r
+    ));
+    setReservationAuditLog(prev => [
+      ...linked.map(r => ({
+        id: `AUDIT-${now.getTime()}-${r.id}-TRANSFER`,
+        reservationId: r.id,
+        itemName: r.itemName,
+        sku: "",
+        qty: r.qty,
+        unit: r.unit,
+        warehouse: vanWh,
+        linkedDNId: dn.id as string,
+        linkedDNNumber: dn.dnNumber as string,
+        reservationType: r.type,
+        status: "ACTIVE" as const,
+        eventType: "Warehouse Transfer" as const,
+        triggeredBy: "System",
+        date: now.toLocaleDateString(),
+        time: now.toLocaleTimeString(),
+        note: `Moved to ${vanWh} after transfer`,
+      })),
+      ...prev,
+    ]);
+  };
+
+  const completeRelatedTransfers = () => {
+    const now = new Date();
+    const nowStr = now.toLocaleString("en-US", {
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", hour12: false,
+    });
+    setTransferList(prev => prev.map(t => 
+      t.sourceDNId === dn.id 
+        ? { ...t, status: "COMPLETED", processTime: nowStr } 
+        : t
+    ));
+  };
+
   const handleAdminTransfer = () => {
     const bothWillBeDone = repDone;
     updateDn({ adminTransfer: "DONE", status: bothWillBeDone ? "PROCESSING" : status });
+    if (bothWillBeDone) {
+      applyVanWarehouseToReservations();
+      completeRelatedTransfers();
+    }
   };
 
   const handleRepTransfer = () => {
     const bothWillBeDone = adminDone;
     updateDn({ repTransfer: "CONFIRMED", status: bothWillBeDone ? "PROCESSING" : status });
+    if (bothWillBeDone) {
+      applyVanWarehouseToReservations();
+      completeRelatedTransfers();
+    }
   };
 
-  const {
-    reservations, setReservations,
-    setReservationAuditLog,
-    setOrderItems,
-  } = useAppData();
+
 
   const handleConfirmDelivery = () => {
     const now = new Date();
@@ -272,7 +321,7 @@ export function DeliveryNoteDetailsPage({ dnId, onBack, onNavigateToSO, onNaviga
           sourceInvoiceId: dn.sourceInvoiceId,
           linkedDNId: dn.id,
           linkedDNNumber: dn.dnNumber,
-          eventType: "Used in DN",
+          eventType: "Used in delivery note",
           triggeredBy: "ADMIN Ayah Al-Ori",
           date: dateStr,
           time: timeStr,
@@ -299,7 +348,7 @@ export function DeliveryNoteDetailsPage({ dnId, onBack, onNavigateToSO, onNaviga
   const handleReturnDelivery = () => {
     if (!dn) return;
 
-    const pnItems = dnItems.map((item: any) => ({
+    const rnItems = dnItems.map((item: any) => ({
       id: item.id,
       name: item.name,
       sku: item.sku,
@@ -310,10 +359,10 @@ export function DeliveryNoteDetailsPage({ dnId, onBack, onNavigateToSO, onNaviga
       condition: "Resellable" as const,
     }));
 
-    const newPNId = `PN-${Math.floor(Math.random() * 1000)}`;
-    const newPN = {
-      id: newPNId,
-      pnNumber: newPNId,
+    const newRNId = `RN-${Math.floor(Math.random() * 1000)}`;
+    const newRN = {
+      id: newRNId,
+      rnNumber: newRNId,
       status: "PENDING" as const,
       sourceSOId: dn.sourceSOId || "—",
       sourceSONumber: dn.sourceSONumber || "—",
@@ -333,10 +382,10 @@ export function DeliveryNoteDetailsPage({ dnId, onBack, onNavigateToSO, onNaviga
       invoicePaymentStatus: "Unpaid" as const,
       repConfirmed: false,
       adminConfirmed: false,
-      itemsData: pnItems,
+      itemsData: rnItems,
     };
-    setPnList(prev => [newPN, ...prev]);
-    onNavigateToPN?.(newPNId);
+    setPnList(prev => [newRN, ...prev]);
+    onNavigateToPN?.(newRNId);
   };
 
   return (
@@ -423,7 +472,7 @@ export function DeliveryNoteDetailsPage({ dnId, onBack, onNavigateToSO, onNaviga
               <div className="flex items-center gap-2">
                 <h2 className="text-[12px] font-bold text-gray-700 uppercase tracking-wide flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5 text-gray-400" />
-                  Status Cycle
+                  Delivery status
                 </h2>
                 {status === "PENDING" && (
                   <span className="text-[11px] text-amber-600 font-semibold bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
@@ -468,7 +517,7 @@ export function DeliveryNoteDetailsPage({ dnId, onBack, onNavigateToSO, onNaviga
                   const isActive    = activeStepIndex === index;
                   const isCanceled  = status === "CANCELED";
                   const isDone      = !isCanceled && (isCompleted || isActive);
-                  const StepIcon = step === "PENDING" ? Check : step === "PROCESSING" ? Truck : Package;
+                  const StepIcon = step === "PENDING" ? Clock : step === "PROCESSING" ? Truck : Package;
                   return (
                     <React.Fragment key={step}>
                       {isDone ? (
@@ -513,7 +562,7 @@ export function DeliveryNoteDetailsPage({ dnId, onBack, onNavigateToSO, onNaviga
                         <span className={`text-[12px] font-semibold leading-tight whitespace-nowrap ${
                           isDone ? "text-gray-800" : "text-gray-400"
                         }`}>
-                          {DN_STATUS_LABELS[step] ?? step}
+                          {step === "PENDING" && isCompleted ? "Transfered" : (DN_STATUS_LABELS[step] ?? step)}
                         </span>
                         <span className={`text-[11px] mt-0.5 ${isDone ? "text-gray-500" : "text-gray-300"}`}>
                           {isDone ? dn.createdDate : "—"}
@@ -534,7 +583,7 @@ export function DeliveryNoteDetailsPage({ dnId, onBack, onNavigateToSO, onNaviga
               <div className="flex items-center gap-2.5">
                 <Truck className="w-4 h-4 text-amber-600 shrink-0" />
                 <p className="text-[13px] font-medium text-amber-800">
-                  DN canceled — items need to be returned to the warehouse.
+                  Delivery note canceled — items need to be returned to the warehouse.
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -561,8 +610,21 @@ export function DeliveryNoteDetailsPage({ dnId, onBack, onNavigateToSO, onNaviga
             </div>
             <div className="p-5 grid grid-cols-2 gap-x-10 gap-y-5">
               <div>
-                <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-1 font-semibold">DN Number</p>
+                <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-1 font-semibold">Delivery note Number</p>
                 <p className="text-[13px] font-semibold text-gray-900">{dn.dnNumber ?? dn.id}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-1 font-semibold">Source</p>
+                {dn.sourceSONumber ? (
+                  <button
+                    onClick={() => onNavigateToSO && dn.sourceSOId && onNavigateToSO(dn.sourceSOId)}
+                    className="text-[13px] font-semibold text-[#4f6ef7] hover:underline flex items-center gap-1"
+                  >
+                    {dn.sourceSONumber} <ExternalLink className="w-3.5 h-3.5" />
+                  </button>
+                ) : (
+                  <p className="text-[13px] font-semibold text-gray-400">—</p>
+                )}
               </div>
               <div>
                 <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-1 font-semibold">Date</p>
@@ -582,12 +644,28 @@ export function DeliveryNoteDetailsPage({ dnId, onBack, onNavigateToSO, onNaviga
               </div>
               <div>
                 <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-1 font-semibold">After Transfer</p>
-                {(status === "PROCESSING" || status === "APPROVED") && REP_VAN_WAREHOUSES[dn.rep] ? (
-                  <p className="text-[13px] font-semibold text-gray-900">{REP_VAN_WAREHOUSES[dn.rep]}</p>
+                {(status === "PROCESSING" || status === "APPROVED") ? (
+                  <p className="text-[13px] font-semibold text-gray-900">{getRepVanWarehouse(dn.rep)}</p>
                 ) : (
                   <p className="text-[13px] font-semibold text-gray-400">—</p>
                 )}
               </div>
+              {relatedTransfers.length > 0 && (
+                <div className="col-span-2">
+                  <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-1 font-semibold">Related Transfer(s)</p>
+                  <div className="flex flex-wrap gap-x-6 gap-y-2">
+                    {relatedTransfers.map(t => (
+                      <button
+                        key={t.id}
+                        onClick={() => openTab({ type: "transfer", id: t.id, label: t.serialNo ?? t.id })}
+                        className="text-[13px] font-semibold text-[#4f6ef7] hover:underline flex items-center gap-1.5"
+                      >
+                        {t.serialNo} <ExternalLink className="w-3.5 h-3.5" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {dn.cancelReason && (
                 <div className="col-span-2">
                   <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-1 font-semibold">Cancel Reason</p>
@@ -595,28 +673,13 @@ export function DeliveryNoteDetailsPage({ dnId, onBack, onNavigateToSO, onNaviga
                 </div>
               )}
             </div>
-            {relatedTransfers.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-gray-100 px-5 pb-5">
-                <p className="text-[11px] text-gray-400 font-medium uppercase tracking-wide mb-2">Related Transfer(s)</p>
-                <div className="flex flex-wrap gap-2">
-                  {relatedTransfers.map(t => (
-                    <button
-                      key={t.id}
-                      onClick={() => openTab({ type: "transfer", id: t.id, label: t.serialNo ?? t.id })}
-                      className="flex items-center gap-1.5 text-[13px] font-semibold text-[#4f6ef7] hover:underline"
-                    >
-                      {t.serialNo} <ExternalLink className="w-3.5 h-3.5" />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+
           </div>
 
           {/* ── DN Items table ── */}
           <div className="bg-white border border-gray-200 rounded-[8px] shadow-sm">
             <div className="px-5 py-4 border-b border-gray-100">
-              <h2 className="text-[12px] font-bold text-[#111827] uppercase tracking-wide">DN Items</h2>
+              <h2 className="text-[12px] font-bold text-[#111827] uppercase tracking-wide">Delivery note Items</h2>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-[13px]">
@@ -624,7 +687,7 @@ export function DeliveryNoteDetailsPage({ dnId, onBack, onNavigateToSO, onNaviga
                   <tr className="bg-gray-50 border-b border-gray-100">
                     <th className="text-left px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wide w-[28%]">Item</th>
                     <th className="text-left px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Warehouse</th>
-                    <th className="text-right px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">DN Qty</th>
+                    <th className="text-right px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Delivery note Qty</th>
                     <th className="text-right px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Base Units</th>
                     <th className="text-left px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">SO Reference</th>
                     <th className="text-right px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Delivered</th>

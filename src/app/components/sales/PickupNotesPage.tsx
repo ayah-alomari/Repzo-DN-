@@ -8,7 +8,7 @@ import { BulkActionBar } from "./BulkActionBar";
 import { useAppData } from "../../context/AppDataContext";
 
 interface PickupNotesPageProps {
-  onPNClick?: (id: string) => void;
+  onRNClick?: (id: string) => void;
   onSOClick?: (id: string) => void;
   onDNClick?: (id: string) => void;
 }
@@ -42,7 +42,7 @@ const DestBadge = ({ dest, rep }: { dest: string; rep?: string }) => {
   );
 };
 
-export function PickupNotesPage({ onPNClick, onSOClick, onDNClick }: PickupNotesPageProps) {
+export function PickupNotesPage({ onRNClick, onSOClick, onDNClick }: PickupNotesPageProps) {
   const { pnList } = useAppData();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
@@ -80,7 +80,7 @@ export function PickupNotesPage({ onPNClick, onSOClick, onDNClick }: PickupNotes
         if (f.field === "Status") return pn.status.toLowerCase() === v;
         if (f.field === "Rep") return pn.rep.toLowerCase().includes(v);
         if (f.field === "Destination") return pn.destinationWarehouse.toLowerCase().includes(v);
-        if (f.field === "PN Number") return pn.pnNumber.toLowerCase().includes(v);
+        if (f.field === "Return Note Number") return pn.rnNumber.toLowerCase().includes(v);
         if (f.field === "Source SO") return (pn.sourceSONumber ?? "").toLowerCase().includes(v);
         if (f.field === "Client") return pn.clientName.toLowerCase().includes(v);
         if (f.field === "Date") return pn.createdDate.toLowerCase().includes(v);
@@ -99,7 +99,7 @@ export function PickupNotesPage({ onPNClick, onSOClick, onDNClick }: PickupNotes
     if (!sortField) return 0;
     const getVal = (item: typeof a) => {
       const map: Record<string, string> = {
-        "PN Number":   item.pnNumber,
+        "Return Note Number":   item.rnNumber,
         "Status":      item.status,
         "Client":      item.clientName,
         "Rep":         item.rep,
@@ -119,7 +119,7 @@ export function PickupNotesPage({ onPNClick, onSOClick, onDNClick }: PickupNotes
   const getFieldSuggestions = (field: string): string[] => {
     const map: Record<string, () => string[]> = {
       'Rep':       () => pnList.map(p => p.rep),
-      'PN Number': () => pnList.map(p => p.pnNumber),
+      'Return Note Number': () => pnList.map(p => p.rnNumber),
       'Source SO': () => pnList.map(p => p.sourceSONumber ?? ""),
       'Client':    () => pnList.map(p => p.clientName),
       'Date':      () => pnList.map(p => p.createdDate),
@@ -133,7 +133,7 @@ export function PickupNotesPage({ onPNClick, onSOClick, onDNClick }: PickupNotes
       <div className="flex items-center justify-between px-6 py-4 border-b border-[#e8e8ec]">
         <div className="flex items-center gap-3">
           <Menu className="w-5 h-5 text-[#4a4a5a] cursor-pointer" />
-          <h1 className="text-[18px] font-bold text-[#1a1a2e]">Pickup Notes</h1>
+          <h1 className="text-[18px] font-bold text-[#1a1a2e]">Return Notes</h1>
         </div>
         <button className="flex items-center gap-2 px-4 py-2 border border-[#e8e8ec] rounded-md text-[13px] font-medium text-[#1a1a2e] hover:bg-[#f7f7f9] transition-colors">
           <Download className="w-4 h-4 text-[#4a4a5a]" /> Export to Excel
@@ -145,7 +145,7 @@ export function PickupNotesPage({ onPNClick, onSOClick, onDNClick }: PickupNotes
         <div className="flex items-center justify-between mb-4">
           <div className="relative w-80">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8b8b9e]" />
-            <input type="text" placeholder="Search PN, client, rep..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full pl-9 pr-4 py-2 rounded-md border border-[#e8e8ec] text-[13px] placeholder:text-[#b0b0be] outline-none focus:border-[#4f6ef7]" />
+            <input type="text" placeholder="Search Return Note, client, rep..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full pl-9 pr-4 py-2 rounded-md border border-[#e8e8ec] text-[13px] placeholder:text-[#b0b0be] outline-none focus:border-[#4f6ef7]" />
           </div>
           <div className="flex items-center gap-2">
             <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
@@ -167,7 +167,7 @@ export function PickupNotesPage({ onPNClick, onSOClick, onDNClick }: PickupNotes
                           <option value="Status">Status</option>
                           <option value="Rep">Rep</option>
                           <option value="Destination">Destination</option>
-                          <option value="PN Number">PN Number</option>
+                          <option value="Return Note Number">Return Note Number</option>
                           <option value="Source SO">Source SO</option>
                           <option value="Client">Client</option>
                           <option value="Date">Date</option>
@@ -263,7 +263,7 @@ export function PickupNotesPage({ onPNClick, onSOClick, onDNClick }: PickupNotes
                     className="cursor-pointer select-none hover:bg-[#f5f5f7] transition-colors text-[11px] font-medium text-[#8b8b9e] uppercase tracking-wider whitespace-nowrap"
                   >
                     <div className="flex items-center gap-1">
-                      PN NUMBER
+                      RETURN NOTE NUMBER
                       {sortField === "PN Number"
                         ? sortDir === "asc" ? <ChevronUp className="w-3 h-3 text-[#4f6ef7]" /> : <ChevronDown className="w-3 h-3 text-[#4f6ef7]" />
                         : <ChevronUp className="w-3 h-3 text-[#d0d0dc]" />
@@ -283,7 +283,7 @@ export function PickupNotesPage({ onPNClick, onSOClick, onDNClick }: PickupNotes
                     </div>
                   </TableHead>
                   <TableHead className="text-[11px] font-medium text-[#8b8b9e] uppercase tracking-wider whitespace-nowrap">FINANCIAL IMPACT</TableHead>
-                  <TableHead className="text-[11px] font-medium text-[#8b8b9e] uppercase tracking-wider whitespace-nowrap">SOURCE DN(s)</TableHead>
+                  <TableHead className="text-[11px] font-medium text-[#8b8b9e] uppercase tracking-wider whitespace-nowrap">SOURCE DELIVERY NOTE(S)</TableHead>
                   <TableHead className="text-[11px] font-medium text-[#8b8b9e] uppercase tracking-wider whitespace-nowrap">SOURCE SO</TableHead>
                   <TableHead
                     onClick={() => handleSort("Client")}
@@ -359,7 +359,7 @@ export function PickupNotesPage({ onPNClick, onSOClick, onDNClick }: PickupNotes
                         <Checkbox checked={selectedIds.has(pn.id)} onCheckedChange={() => toggleOne(pn.id)} className="rounded-[4px] border-[#d0d0dc]" />
                       </div>
                     </TableCell>
-                    <TableCell onClick={() => onPNClick && onPNClick(pn.id)} className="font-semibold text-[#4f6ef7] hover:underline cursor-pointer">{pn.pnNumber}</TableCell>
+                    <TableCell onClick={() => onRNClick && onRNClick(pn.id)} className="font-semibold text-[#4f6ef7] hover:underline cursor-pointer">{pn.rnNumber}</TableCell>
                     <TableCell><StatusBadge status={pn.status} /></TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1">
@@ -379,7 +379,7 @@ export function PickupNotesPage({ onPNClick, onSOClick, onDNClick }: PickupNotes
                         {pn.sourceDNs.map(dn => (
                           <button key={dn.id} onClick={() => onDNClick && onDNClick(dn.id)} className="text-[12px] font-medium text-[#4f6ef7] hover:underline text-left">{dn.number}</button>
                         ))}
-                        {pn.sourceDNs.length > 1 && <span className="text-[9px] text-indigo-400 font-medium">Multi-DN</span>}
+                        {pn.sourceDNs.length > 1 && <span className="text-[9px] text-indigo-400 font-medium">Multi-delivery note</span>}
                       </div>
                     </TableCell>
                     <TableCell onClick={() => onSOClick && onSOClick(pn.sourceSOId)} className="text-[#4f6ef7] hover:underline cursor-pointer text-[12px] font-medium">{pn.sourceSONumber}</TableCell>

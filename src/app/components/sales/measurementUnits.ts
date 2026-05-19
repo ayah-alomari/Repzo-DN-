@@ -35,6 +35,12 @@ export const MEASUREMENT_FAMILIES: Record<string, MeasurementFamily> = {
 export const PRODUCT_FAMILY_MAP: Record<string, string> = {
   itm1: "count",
   itm2: "count",
+  itm3: "count",
+  itm4: "count",
+  itm5: "count",
+  "p11-itm1": "count",
+  "p11-itm2": "count",
+  "p11-itm3": "count",
 };
 
 export function getProductFamily(productId: string): MeasurementFamily | null {

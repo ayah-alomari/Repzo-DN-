@@ -287,8 +287,8 @@ export function ApproveOrderModal({
                     </Select>
                   </div>
 
-                  {/* View stock link */}
-                  {warehouse && (
+                  {/* View stock link — only in normal (non-strict) mode */}
+                  {warehouse && !requireFullStock && (
                     <button
                       onClick={() => setView("stock")}
                       className="flex items-center gap-1.5 text-[12px] font-semibold text-indigo-600 hover:text-indigo-700 transition-colors animate-in slide-in-from-top-1 duration-150"
@@ -298,6 +298,50 @@ export function ApproveOrderModal({
                         <span className="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">shortage</span>
                       )}
                     </button>
+                  )}
+
+                  {/* Affected Items Preview — only in requireFullStock mode */}
+                  {warehouse && requireFullStock && (
+                    <div className="animate-in slide-in-from-top-2 duration-200 space-y-2">
+                      <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Affected Items Preview</p>
+                      <div className="border border-gray-100 rounded-lg overflow-hidden">
+                        <table className="w-full text-[12px]">
+                          <thead className="bg-gray-50 border-b border-gray-100">
+                            <tr>
+                              <th className="text-left px-3 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Item</th>
+                              <th className="text-center px-3 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Order Qty</th>
+                              <th className="text-center px-3 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total Stock</th>
+                              <th className="text-center px-3 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Free</th>
+                              <th className="text-center px-3 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-50 bg-white">
+                            {stockRows.map(row => (
+                              <tr key={row.id} className={row.negative ? "bg-red-50/40" : ""}>
+                                <td className="px-3 py-2.5">
+                                  <p className="font-semibold text-gray-900 truncate max-w-[110px]">{row.name}</p>
+                                </td>
+                                <td className="px-3 py-2.5 text-center font-medium text-gray-700">
+                                  {row.reserveQty} <span className="text-gray-400">{row.unit}</span>
+                                </td>
+                                <td className="px-3 py-2.5 text-center font-medium text-gray-700">
+                                  {row.before} <span className="text-gray-400">{row.unit}</span>
+                                </td>
+                                <td className="px-3 py-2.5 text-center font-bold">
+                                  <span className={row.negative ? "text-red-500" : "text-green-600"}>{row.after}</span>
+                                </td>
+                                <td className="px-3 py-2.5 text-center">
+                                  {row.negative
+                                    ? <AlertTriangle className="w-4 h-4 text-amber-500 mx-auto" />
+                                    : <CheckCircle2 className="w-4 h-4 text-green-500 mx-auto" />
+                                  }
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
                   )}
                 </div>
               )}
@@ -317,9 +361,9 @@ export function ApproveOrderModal({
                 ) : <div />}
                 <Button
                   onClick={() => onConfirm(true, warehouse, hasShortage)}
-                  disabled={requireFullStock && !warehouse}
+                  disabled={requireFullStock && (!warehouse || hasShortage)}
                   className={`h-10 px-8 font-bold shadow-md transition-all active:scale-95 ${
-                    requireFullStock && !warehouse
+                    requireFullStock && (!warehouse || hasShortage)
                       ? "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none"
                       : "bg-[#12b76a] hover:bg-[#0ea05e] text-white"
                   }`}

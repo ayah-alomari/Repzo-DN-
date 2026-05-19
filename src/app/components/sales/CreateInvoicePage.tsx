@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowLeft, Edit2, ChevronDown, Check } from "lucide-react";
 import { Switch } from "../ui/switch";
 import { ItemsTable, CartRow } from "./ItemsTable";
@@ -12,12 +12,21 @@ interface CreateInvoicePageProps {
 }
 
 export function CreateInvoicePage({ onBack, onSave, onNavigateToInvoice }: CreateInvoicePageProps) {
-  const { setInvoices } = useAppData();
+  const { setInvoices, enableTransactionalInvoice, transactionalMode } = useAppData();
   const tableRef = useRef<{ addRow: () => void; addReturnRow: () => void }>({ addRow: () => {}, addReturnRow: () => {} });
   const [rep, setRep] = useState("");
   const [client, setClient] = useState("");
   const [warehouse, setWarehouse] = useState("");
-  const [isDelivered, setIsDelivered] = useState(false);
+
+  const defaultIsDelivered = enableTransactionalInvoice && transactionalMode === "strict";
+  const [isDelivered, setIsDelivered] = useState(defaultIsDelivered);
+
+  useEffect(() => {
+    setIsDelivered(enableTransactionalInvoice && transactionalMode === "strict");
+  }, [enableTransactionalInvoice, transactionalMode]);
+
+  const isCheckboxDisabled = !enableTransactionalInvoice || (enableTransactionalInvoice && transactionalMode === "strict");
+
   const [posMode, setPosMode] = useState(false);
   const [clearKey, setClearKey] = useState(0);
   const [cartRows, setCartRows] = useState<CartRow[]>([]);
@@ -29,7 +38,7 @@ export function CreateInvoicePage({ onBack, onSave, onNavigateToInvoice }: Creat
     setRep("");
     setClient("");
     setWarehouse("");
-    setIsDelivered(false);
+    setIsDelivered(enableTransactionalInvoice && transactionalMode === "strict");
     setClearKey(k => k + 1);
   }
 
@@ -183,8 +192,14 @@ export function CreateInvoicePage({ onBack, onSave, onNavigateToInvoice }: Creat
 
             {/* Mark as delivered — creates inventory transaction */}
             <div
-              className="flex items-center gap-2 pt-2 cursor-pointer"
-              onClick={() => setIsDelivered(!isDelivered)}
+              className={`flex items-center gap-2 pt-2 ${
+                isCheckboxDisabled ? "opacity-60 cursor-not-allowed pointer-events-none" : "cursor-pointer"
+              }`}
+              onClick={() => {
+                if (!isCheckboxDisabled) {
+                  setIsDelivered(!isDelivered);
+                }
+              }}
             >
               <div className={`w-4 h-4 rounded-[4px] border border-[#d0d0dc] flex items-center justify-center transition-colors ${
                 isDelivered ? "bg-[#a855f7] border-[#a855f7]" : "bg-white"

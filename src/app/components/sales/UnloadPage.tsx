@@ -175,7 +175,7 @@ export function UnloadPage({ onUnloadClick }: UnloadPageProps) {
         <div className="flex items-center gap-4">
           <Menu className="w-5 h-5 text-[#4a4a5a] cursor-pointer" />
           <div className="flex items-center bg-[#f7f7f9] p-1 rounded-full text-[13px] font-medium text-[#4a4a5a]">
-            <button className="px-4 py-1.5 rounded-full bg-white shadow-sm text-[#1a1a2e]">DN Unloads</button>
+            <button className="px-4 py-1.5 rounded-full bg-white shadow-sm text-[#1a1a2e]">Delivery Note Unloads</button>
           </div>
         </div>
         <div className="flex flex-1 justify-end items-center gap-4">
@@ -186,7 +186,7 @@ export function UnloadPage({ onUnloadClick }: UnloadPageProps) {
       </div>
 
       <div className="flex flex-col flex-1 p-6 overflow-hidden">
-        <h1 className="text-[20px] font-bold text-[#1a1a2e] mb-6">DN Unloads</h1>
+        <h1 className="text-[20px] font-bold text-[#1a1a2e] mb-6">Delivery Note Unloads</h1>
 
         {/* Toolbar */}
         <div className="flex items-center justify-between mb-4">
@@ -194,7 +194,7 @@ export function UnloadPage({ onUnloadClick }: UnloadPageProps) {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8b8b9e]" />
             <input
               type="text"
-              placeholder="Search DN, rep, client..."
+              placeholder="Search delivery note, rep, client..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-4 py-2 rounded-md border border-[#e8e8ec] text-[13px] placeholder:text-[#b0b0be] outline-none focus:border-[#4f6ef7]"
@@ -222,7 +222,7 @@ export function UnloadPage({ onUnloadClick }: UnloadPageProps) {
                           className="h-8 border border-[#e8e8ec] text-[13px] rounded-md px-2 w-[130px] outline-none cursor-pointer">
                           <option value="Status">Status</option>
                           <option value="Rep">Rep</option>
-                          <option value="DN Number">DN Number</option>
+                          <option value="DN Number">Delivery Note Number</option>
                           <option value="Original Warehouse">Original Warehouse</option>
                           <option value="Unload Warehouse">Unload Warehouse</option>
                           <option value="Created By">Created By</option>
@@ -345,7 +345,7 @@ export function UnloadPage({ onUnloadClick }: UnloadPageProps) {
                   className="cursor-pointer select-none hover:bg-[#f5f5f7] transition-colors text-[11px] font-medium text-[#8b8b9e] uppercase tracking-wider whitespace-nowrap"
                 >
                   <div className="flex items-center gap-1">
-                    DN NUMBER
+                    DELIVERY NOTE NUMBER
                     {sortField === "DN Number"
                       ? sortDir === "asc" ? <ChevronUp className="w-3 h-3 text-[#4f6ef7]" /> : <ChevronDown className="w-3 h-3 text-[#4f6ef7]" />
                       : <ChevronUp className="w-3 h-3 text-[#d0d0dc]" />

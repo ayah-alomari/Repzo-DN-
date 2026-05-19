@@ -61,10 +61,10 @@ const steps = ["PENDING", "PROCESSING", "RECEIVED"] as const;
 
 export function PickupNoteDetailsPage({ pnId, onBack, onNavigateToSO, onNavigateToTransfer }: PickupNoteDetailsPageProps) {
   const { pnList, setPnList, transferList } = useAppData();
-  const relatedTransfer = transferList.find(t => t.sourcePNId === pnId);
+  const relatedTransfer = transferList.find(t => t.sourceRNId === pnId);
 
   let initial: PNRecord | null = null;
-  const record = pnList.find(p => p.id === pnId || p.pnNumber === pnId);
+  const record = pnList.find(p => p.id === pnId || p.rnNumber === pnId);
 
   if (record) {
     initial = {
@@ -93,9 +93,38 @@ export function PickupNoteDetailsPage({ pnId, onBack, onNavigateToSO, onNavigate
   const [pn, setPn] = useState<PNRecord | null>(initial);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
 
+  useEffect(() => {
+    const record = pnList.find(p => p.id === pnId || p.rnNumber === pnId);
+    if (record) {
+      setPn({
+        id: record.id,
+        sourceSOId: record.sourceSOId,
+        sourceSO: record.sourceSONumber,
+        sourceDNs: record.sourceDNs.map(d => ({ ...d, itemsCount: d.itemsCount || 0 })),
+        invoiceNumber: record.invoiceNumber,
+        client: record.clientName,
+        rep: record.rep,
+        warehouse: record.warehouse,
+        destinationWarehouse: record.destinationWarehouse,
+        destinationRep: record.destinationRep,
+        createdBy: record.createdBy,
+        createdDate: record.createdDate,
+        status: record.status,
+        reason: "Return Delivery",
+        comment: "",
+        repConfirmed: record.repConfirmed || false,
+        adminConfirmed: record.adminConfirmed || false,
+        inRepVan: record.inRepVan,
+        items: record.itemsData || [],
+      });
+    } else {
+      setPn(null);
+    }
+  }, [pnList, pnId]);
+
   const SELF_TYPE = "pn";
   const selfId = pnId ?? "pn";
-  const selfLabel = pn?.id ?? pnId ?? "Pickup Note";
+  const selfLabel = pn?.id ?? pnId ?? "Return Note";
   type InnerTab = { type: string; id: string; label: string };
   const SELF_TAB: InnerTab = { type: SELF_TYPE, id: selfId, label: selfLabel };
   const [innerTabs, setInnerTabs] = useState<InnerTab[]>([SELF_TAB]);
@@ -115,7 +144,7 @@ export function PickupNoteDetailsPage({ pnId, onBack, onNavigateToSO, onNavigate
   if (!pn) {
     return (
       <div className="flex-1 flex items-center justify-center bg-[#f5f5f7]">
-        <p className="text-[13px] text-gray-400">Pickup note not found.</p>
+        <p className="text-[13px] text-gray-400">Return note not found.</p>
       </div>
     );
   }
@@ -131,7 +160,7 @@ export function PickupNoteDetailsPage({ pnId, onBack, onNavigateToSO, onNavigate
       
       // Sync with global context
       setPnList(list => list.map(p => {
-        if (p.id === next.id || p.pnNumber === next.id) {
+        if (p.id === next.id || p.rnNumber === next.id) {
           return {
             ...p,
             status: next.status,
@@ -262,7 +291,7 @@ export function PickupNoteDetailsPage({ pnId, onBack, onNavigateToSO, onNavigate
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-[12px] font-bold text-gray-700 uppercase tracking-wide flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5 text-gray-400" />
-                Status Cycle
+                Return status
               </h2>
               <div className="flex items-center gap-2">
                 {pn.inRepVan && status !== "RECEIVED" && (
@@ -283,7 +312,7 @@ export function PickupNoteDetailsPage({ pnId, onBack, onNavigateToSO, onNavigate
                 {status === "PENDING" && (
                   <button onClick={handleRepPickup}
                     className="flex items-center gap-1.5 text-white px-3 py-1.5 rounded-[4px] text-[12px] font-medium transition-all hover:opacity-90 active:scale-95 bg-[#4f6ef7]">
-                    <Truck className="w-3.5 h-3.5" /> Rep Picked Up
+                    <Truck className="w-3.5 h-3.5" /> Rep Collected
                   </button>
                 )}
                 {status === "PROCESSING" && (
@@ -634,7 +663,7 @@ export function PickupNoteDetailsPage({ pnId, onBack, onNavigateToSO, onNavigate
                 </div>
                 <div className="ml-6 bg-gray-50 border border-gray-100 p-3 rounded-lg w-full shadow-sm ring-1 ring-amber-200">
                   <div className="flex justify-between items-center mb-1">
-                    <span className="text-[13px] font-bold text-gray-900">Pickup Note Generated</span>
+                    <span className="text-[13px] font-bold text-gray-900">Return Note Generated</span>
                     <span className="text-[11px] text-gray-500">{pn.createdDate}</span>
                   </div>
                   <p className="text-[12px] text-gray-600 mb-2">{pn.id} created for return.</p>

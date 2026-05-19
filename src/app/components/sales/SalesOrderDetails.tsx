@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { getProductFamily, getBaseUnit, toBase } from "./measurementUnits";
+import { getProductFamily, getBaseUnit, toBase, getUnitFactor } from "./measurementUnits";
 import { useAppData, type DeliveryNote, type ReturnTransfer, type Reservation, type InvoiceRecord, type DNRecord, type SalesOrderRecord, type ReservationAuditEntry, type SOAuditEntry } from "../../context/AppDataContext";
 import { 
   Copy,
@@ -54,11 +54,7 @@ interface SalesOrderDetailsProps {
 }
 
 
-const REP_VAN_WAREHOUSES: Record<string, string> = {
-  "Ahmad Alshaikh":   "Local Maram Van Warehouse",
-  "REP khaled":       "Khald Warehouse",
-  "REP Ahmad Abudre": "Van مستودع الكوم",
-};
+const getRepVanWarehouse = (rep: string) => `${rep} Van Warehouse`;
 
 export function SalesOrderDetails({ orderId, onBack, onNavigateToDeliveryNotes, onNavigateToDN, onNavigateToInvoice, onNavigateToTransfer }: SalesOrderDetailsProps) {
   const {
@@ -73,9 +69,11 @@ export function SalesOrderDetails({ orderId, onBack, onNavigateToDeliveryNotes, 
     salesOrders, setSalesOrders,
     setInvoices,
     dnList, setDnList,
-    transferList,
+    transferList, setTransferList,
     setReservationAuditLog,
     allowSOApprovalWithoutStock,
+    preventInvoiceReservations,
+    allowMultiWarehouseReservation,
     soAuditLog, setSOAuditLog,
   } = useAppData();
 
@@ -206,6 +204,9 @@ export function SalesOrderDetails({ orderId, onBack, onNavigateToDeliveryNotes, 
     }
     
     if (autoReserve && warehouse) {
+      const groupId = !allowMultiWarehouseReservation
+        ? `RESGRP-${Date.now()}`
+        : undefined;
       const newReservations: Reservation[] = orderItems
         .filter(item => {
           const family = getProductFamily(item.id);
@@ -228,6 +229,7 @@ export function SalesOrderDetails({ orderId, onBack, onNavigateToDeliveryNotes, 
             date: new Date().toLocaleDateString(),
             type: "AUTO" as const,
             sourceSOId: soId,
+            groupId,
           };
         });
       setReservations(prev => [...prev, ...newReservations]);
@@ -250,6 +252,8 @@ export function SalesOrderDetails({ orderId, onBack, onNavigateToDeliveryNotes, 
           triggeredBy: "Admin",
           date: approveDate,
           time: approveTime,
+          reservationType: res.type,
+          status: "ACTIVE" as const,
         })),
         ...prev,
       ]);
@@ -290,7 +294,7 @@ export function SalesOrderDetails({ orderId, onBack, onNavigateToDeliveryNotes, 
       balance: `JOD ${balance.toFixed(2)}`,
       paymentType: data.paymentStatus === "UNPAID" ? "Credit" : "Cash",
       status: "PENDING",
-      delivery: data.markAsDelivered ? "Delivered" : "No DN",
+      delivery: data.markAsDelivered ? "Delivered" : "No Delivery Note",
       comment: "",
       sourceSOId: soId || undefined,
       reservedItems: data.reservations,
@@ -301,44 +305,54 @@ export function SalesOrderDetails({ orderId, onBack, onNavigateToDeliveryNotes, 
       updateSoGlobal({ status: "invoiced", linkedInvoiceId: newInvoiceId });
     }
 
-    const newReservations = (data.reservations as { itemId: string; itemName: string; qty: number; unit: string; warehouse: string }[])
-      .map((r, idx) => ({
-        id: `RES-INV-${newInvoiceId}-${r.itemId}-${idx}`,
-        itemId: r.itemId,
-        itemName: r.itemName,
-        qty: r.qty,
-        unit: r.unit,
-        qtyBase: r.qty,
-        warehouse: r.warehouse,
-        status: "ACTIVE" as const,
-        date: today,
-        type: "AUTO" as const,
-      }));
-    setReservations(prev => [...prev, ...newReservations]);
-    if (newReservations.length > 0) {
-      const nowConv = new Date();
-      const convDate = nowConv.toISOString().split("T")[0];
-      const convTime = nowConv.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
-      setReservationAuditLog(prev => [
-        ...newReservations.map(res => ({
-          id: `AUDIT-${Date.now()}-${res.id}`,
-          reservationId: res.id,
-          itemName: res.itemName,
-          sku: orderItems.find(o => o.id === res.itemId)?.sku ?? "-",
-          qty: res.qty,
-          unit: res.unit,
-          warehouse: res.warehouse ?? "-",
-          sourceSOId: soId || undefined,
-          sourceSONumber: soRecord?.orderNo,
+    if (!preventInvoiceReservations) {
+      const invGroupId = !allowMultiWarehouseReservation
+        ? `RESGRP-INV-${newInvoiceId}`
+        : undefined;
+      const newReservations = (data.newAllocations as { itemId: string; itemName: string; qty: number; unit: string; warehouse: string }[])
+        .map((r, idx) => ({
+          id: `RES-INV-${newInvoiceId}-${r.itemId}-${idx}`,
+          itemId: r.itemId,
+          itemName: r.itemName,
+          qty: r.qty,
+          unit: r.unit,
+          qtyBase: r.qty,
+          warehouse: r.warehouse,
+          status: "ACTIVE" as const,
+          date: today,
+          type: "AUTO" as const,
           sourceInvoiceId: newInvoiceId,
-          sourceInvoiceNumber: newInvoiceId,
-          eventType: "Created" as const,
-          triggeredBy: "Admin",
-          date: convDate,
-          time: convTime,
-        })),
-        ...prev,
-      ]);
+          sourceSOId: soId || undefined,
+          groupId: invGroupId,
+        }));
+      setReservations(prev => [...prev, ...newReservations]);
+      if (newReservations.length > 0) {
+        const nowConv = new Date();
+        const convDate = nowConv.toISOString().split("T")[0];
+        const convTime = nowConv.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+        setReservationAuditLog(prev => [
+          ...newReservations.map(res => ({
+            id: `AUDIT-${Date.now()}-${res.id}`,
+            reservationId: res.id,
+            itemName: res.itemName,
+            sku: orderItems.find(o => o.id === res.itemId)?.sku ?? "-",
+            qty: res.qty,
+            unit: res.unit,
+            warehouse: res.warehouse ?? "-",
+            sourceSOId: soId || undefined,
+            sourceSONumber: soRecord?.orderNo,
+            sourceInvoiceId: newInvoiceId,
+            sourceInvoiceNumber: newInvoiceId,
+            eventType: "Created" as const,
+            triggeredBy: "Admin",
+            date: convDate,
+            time: convTime,
+            reservationType: "AUTO" as const,
+            status: "ACTIVE" as const,
+          })),
+          ...prev,
+        ]);
+      }
     }
 
     setIsConvertModalOpen(false);
@@ -371,6 +385,7 @@ export function SalesOrderDetails({ orderId, onBack, onNavigateToDeliveryNotes, 
       dnNumber: newDN.id,
       status: "PENDING",
       sourceSOId: soId,
+      sourceSONumber: soRecord.orderNo,
       clientName: soRecord.clientName,
       rep: data.rep,
       createdBy: "Admin",
@@ -378,16 +393,51 @@ export function SalesOrderDetails({ orderId, onBack, onNavigateToDeliveryNotes, 
       items: data.items.length,
       createdDate: new Date().toLocaleDateString("en-GB"),
       isManual: data.isManual,
-      itemsData: data.items.map(di => ({
-        id: di.id,
-        name: orderItems.find(o => o.id === di.id)?.name ?? di.id,
-        sku: orderItems.find(o => o.id === di.id)?.sku ?? "-",
-        qty: di.qty,
-        unit: di.unit,
-        qtyBase: di.qtyBase,
-        delivered: 0,
-        warehouse: di.warehouse,
-      }))
+      itemsData: data.items.map(di => {
+        const oi = orderItems.find(o => o.id === di.id);
+        return {
+          id: di.id,
+          name: oi?.name ?? di.id,
+          sku: oi?.sku ?? "-",
+          qty: di.qty,
+          unit: di.unit,
+          qtyBase: di.qtyBase,
+          soQty: oi?.totalQty ?? di.qty,
+          soUnit: oi?.unit ?? di.unit,
+          delivered: 0,
+          warehouse: di.warehouse,
+        };
+      })
+    }, ...prev]);
+
+    // Create linked Transfer
+    const newTransferId = `TR-${Math.floor(Math.random() * 9000 + 1000)}`;
+    setTransferList(prev => [{
+      id: newTransferId,
+      serialNo: newTransferId,
+      createdAt: new Date().toLocaleDateString("en-GB"),
+      createdBy: "Admin",
+      from: data.items[0]?.warehouse || "-",
+      to: `${data.rep} Van Warehouse`,
+      type: "LOAD",
+      status: "PENDING",
+      numberOfProducts: data.items.length,
+      sourceDNId: newDN.id,
+      sourceDNNumber: newDN.id,
+      items: data.items.map(di => {
+        const oi = orderItems.find(o => o.id === di.id);
+        return {
+          id: di.id,
+          productId: di.id,
+          sku: oi?.sku ?? "-",
+          productName: oi?.name ?? di.id,
+          variantName: "-",
+          measureUnit: di.unit,
+          quantity: di.qty,
+          originQty: 0,
+          destQty: 0
+        };
+      }),
     }, ...prev]);
 
     // Aggregate noted qty by itemId
@@ -401,142 +451,90 @@ export function SalesOrderDetails({ orderId, onBack, onNavigateToDeliveryNotes, 
       return item;
     }));
 
-    // Process Reservations
-    let updatedReservations = [...reservations];
-    let updatedAuditLog = [...reservationAuditLog];
+    // Lock matching ACTIVE reservations for any DN (manual or from reservation)
     const now = new Date();
     const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
     const dateStr = now.toISOString().split("T")[0];
 
-    data.items.forEach(dnItem => {
-      let qtyToConsume = dnItem.qtyBase;
-      
-      // 1. Find matching ACTIVE reservations for this item/warehouse/SO
-      const matchingRes = updatedReservations.filter(r => 
-        r.itemId === dnItem.id && 
-        r.warehouse === dnItem.warehouse && 
-        r.sourceSOId === soId && 
-        r.status === "ACTIVE"
-      );
+    setReservations(prev => {
+      const nextReservations: any[] = [];
+      prev.forEach(r => {
+        const dnItem = data.items.find(dnItem =>
+          dnItem.id === r.itemId &&
+          dnItem.warehouse === r.warehouse &&
+          r.sourceSOId === soId &&
+          r.status === "ACTIVE"
+        );
+        if (dnItem) {
+          const dnQtyBase = dnItem.qtyBase;
+          const resQtyBase = r.qtyBase || r.qty;
+          if (dnQtyBase < resQtyBase) {
+            // Split reservation
+            const family = getProductFamily(r.itemId);
+            const factor = family ? getUnitFactor(r.unit, family) : 1;
+            const dnQtyInUnit = factor > 0 ? dnQtyBase / factor : dnQtyBase;
+            const remainingQtyBase = resQtyBase - dnQtyBase;
+            const remainingQtyInUnit = factor > 0 ? remainingQtyBase / factor : remainingQtyBase;
 
-      if (data.isManual) {
-        // STRICT RULE: If manual DN is created, lock the entire matching active reservation(s)
-        matchingRes.forEach(res => {
-          updatedReservations = updatedReservations.map(r => {
-            if (r.id === res.id) {
-              return { ...r, status: "CONSUMED" as const, linkedDNId: newDN.id, linkedDNNumber: newDN.id };
-            }
-            return r;
-          });
+            nextReservations.push({
+              ...r,
+              id: `${r.id}-noted-${Date.now()}`,
+              qty: dnQtyInUnit,
+              qtyBase: dnQtyBase,
+              linkedDNId: newDN.id,
+              linkedDNNumber: newDN.id,
+            });
+            nextReservations.push({
+              ...r,
+              qty: remainingQtyInUnit,
+              qtyBase: remainingQtyBase,
+            });
+          } else {
+            nextReservations.push({
+              ...r,
+              linkedDNId: newDN.id,
+              linkedDNNumber: newDN.id,
+            });
+          }
+        } else {
+          nextReservations.push(r);
+        }
+      });
+      return nextReservations;
+    });
 
-          updatedAuditLog.push({
-            id: `AUDIT-${Date.now()}-${res.id}-CONS`,
-            reservationId: res.id,
-            itemName: res.itemName,
-            sku: orderItems.find(o => o.id === res.itemId)?.sku ?? "-",
-            qty: res.qty,
-            unit: res.unit,
-            warehouse: res.warehouse ?? "-",
-            sourceSOId: soId || undefined,
-            sourceSONumber: soRecord?.orderNo,
-            linkedDNId: newDN.id,
-            linkedDNNumber: newDN.id,
-            eventType: "Used in DN" as const,
-            triggeredBy: "Admin",
-            date: dateStr,
-            time: timeStr,
-            note: `Locked by manual DN ${newDN.id} (Manual entry started)`
-          });
-        });
-      } else {
-        // Normal From-Reservation consumption
-        matchingRes.forEach(res => {
-          if (qtyToConsume <= 0) return;
-          const consumed = Math.min(qtyToConsume, res.qtyBase);
-          qtyToConsume -= consumed;
-          
-          updatedReservations = updatedReservations.map(r => {
-            if (r.id === res.id) {
-              const newQtyBase = r.qtyBase - consumed;
-              if (newQtyBase <= 0) {
-                return { ...r, qty: 0, qtyBase: 0, status: "CONSUMED" as const, linkedDNId: newDN.id, linkedDNNumber: newDN.id };
-              } else {
-                const family = getProductFamily(r.itemId);
-                const factor = family ? getUnitFactor(r.unit, family) : 1;
-                return { ...r, qty: factor > 0 ? newQtyBase / factor : 0, qtyBase: newQtyBase };
-              }
-            }
-            return r;
-          });
-
-          updatedAuditLog.push({
-            id: `AUDIT-${Date.now()}-${res.id}-CONS`,
-            reservationId: res.id,
-            itemName: res.itemName,
-            sku: orderItems.find(o => o.id === res.itemId)?.sku ?? "-",
-            qty: consumed,
-            unit: res.unit,
-            warehouse: res.warehouse ?? "-",
-            sourceSOId: soId || undefined,
-            sourceSONumber: soRecord?.orderNo,
-            linkedDNId: newDN.id,
-            linkedDNNumber: newDN.id,
-            eventType: "Used in DN" as const,
-            triggeredBy: "Admin",
-            date: dateStr,
-            time: timeStr,
-            note: `Consumed by DN ${newDN.id}`
-          });
-        });
-      }
-
-      // 2. If it was manual and NO reservation existed, or if there's remaining qty after consumption
-      const consumedBase = matchingRes.reduce((sum, r) => sum + r.qtyBase, 0);
-      const neededNewRes = data.isManual ? Math.max(0, dnItem.qtyBase - consumedBase) : qtyToConsume;
-
-      if (neededNewRes > 0) {
-        const oi = orderItems.find(o => o.id === dnItem.id);
-        const family = getProductFamily(dnItem.id);
-        const factor = family ? getUnitFactor(dnItem.unit, family) : 1;
-        const newRes: Reservation = {
-          id: `RES-DN-AUTO-${newDN.id}-${dnItem.id}-${Math.floor(Math.random()*1000)}`,
-          itemId: dnItem.id,
-          itemName: oi?.name ?? dnItem.id,
-          qty: factor > 0 ? neededNewRes / factor : 0,
-          unit: dnItem.unit,
-          qtyBase: neededNewRes,
-          warehouse: dnItem.warehouse,
-          status: "CONSUMED" as const,
-          date: now.toLocaleDateString(),
-          type: "AUTO" as const,
-          sourceSOId: soId || undefined,
-          linkedDNId: newDN.id,
-          linkedDNNumber: newDN.id,
-        };
-        updatedReservations.push(newRes);
-        
-        updatedAuditLog.push({
-          id: `AUDIT-${Date.now()}-${newRes.id}`,
-          reservationId: newRes.id,
-          itemName: newRes.itemName,
-          sku: oi?.sku ?? "-",
-          qty: newRes.qty,
-          unit: newRes.unit,
-          warehouse: newRes.warehouse ?? "-",
+    setReservationAuditLog(prev => {
+      const newEntries = reservations
+        .filter(r =>
+          data.items.some(dnItem =>
+            dnItem.id === r.itemId &&
+            dnItem.warehouse === r.warehouse &&
+            r.sourceSOId === soId &&
+            r.status === "ACTIVE"
+          )
+        )
+        .map(res => ({
+          id: `AUDIT-${Date.now()}-${res.id}-LOCK`,
+          reservationId: res.id,
+          itemName: res.itemName,
+          sku: orderItems.find(o => o.id === res.itemId)?.sku ?? "-",
+          qty: res.qty,
+          unit: res.unit,
+          warehouse: res.warehouse ?? "-",
           sourceSOId: soId || undefined,
           sourceSONumber: soRecord?.orderNo,
           linkedDNId: newDN.id,
           linkedDNNumber: newDN.id,
-          eventType: "Created" as const,
+          eventType: "Used in delivery note" as const,
           triggeredBy: "Admin",
           date: dateStr,
           time: timeStr,
-        });
-      }
+          reservationType: res.type,
+          status: "ACTIVE" as const,
+          note: `Linked to delivery note ${newDN.id}`,
+        }));
+      return [...prev, ...newEntries];
     });
-
-    setReservations(updatedReservations);
-    setReservationAuditLog(updatedAuditLog);
 
     // Persist notedQty to global salesOrders so the limit survives navigation
     setSalesOrders(prev => prev.map(so => {
@@ -573,10 +571,41 @@ export function SalesOrderDetails({ orderId, onBack, onNavigateToDeliveryNotes, 
     }));
     if (bothDone) setDnList(prev => prev.map(d => d.id === dn.id ? { ...d, status: "PROCESSING" as const, adminTransfer: "DONE" } : d));
     if (bothDone) {
-      const vanWh = REP_VAN_WAREHOUSES[dn.rep] ?? "Rep Van";
-      setReservations(prev => prev.map(r =>
-        dn.items.some(i => i.id === r.itemId) && r.status === "ACTIVE" ? { ...r, warehouse: vanWh } : r
-      ));
+      const vanWh = getRepVanWarehouse(dn.rep);
+      const now = new Date();
+      const dateStr = now.toISOString().split("T")[0];
+      const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+      setReservations(prev => prev.map(r => {
+        if (r.linkedDNId === dn.id && r.status === "ACTIVE") {
+          return { ...r, warehouse: vanWh };
+        }
+        return r;
+      }));
+      setReservationAuditLog(prev => [
+        ...reservations
+          .filter(r => r.linkedDNId === dn.id && r.status === "ACTIVE")
+          .map(r => ({
+            id: `AUDIT-${Date.now()}-${r.id}-TRANSFER`,
+            reservationId: r.id,
+            itemName: r.itemName,
+            sku: orderItems.find(o => o.id === r.itemId)?.sku ?? "-",
+            qty: r.qty,
+            unit: r.unit,
+            warehouse: vanWh,
+            sourceSOId: soId || undefined,
+            sourceSONumber: soRecord?.orderNo,
+            linkedDNId: dn.id,
+            linkedDNNumber: dn.id,
+            eventType: "Warehouse Transfer" as const,
+            triggeredBy: "Admin",
+            date: dateStr,
+            time: timeStr,
+            reservationType: r.type,
+            status: "ACTIVE" as const,
+            note: `Moved to ${vanWh} after transfer`,
+          })),
+        ...prev,
+      ]);
     }
   };
 
@@ -587,10 +616,41 @@ export function SalesOrderDetails({ orderId, onBack, onNavigateToDeliveryNotes, 
       return { ...d, repTransfer: "CONFIRMED" as const, status: bothDone ? "PROCESSING" as const : d.status };
     }));
     if (bothDone) {
-      const vanWh = REP_VAN_WAREHOUSES[dn.rep] ?? "Rep Van";
-      setReservations(prev => prev.map(r =>
-        dn.items.some(i => i.id === r.itemId) && r.status === "ACTIVE" ? { ...r, warehouse: vanWh } : r
-      ));
+      const vanWh = getRepVanWarehouse(dn.rep);
+      const now = new Date();
+      const dateStr = now.toISOString().split("T")[0];
+      const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+      setReservations(prev => prev.map(r => {
+        if (r.linkedDNId === dn.id && r.status === "ACTIVE") {
+          return { ...r, warehouse: vanWh };
+        }
+        return r;
+      }));
+      setReservationAuditLog(prev => [
+        ...reservations
+          .filter(r => r.linkedDNId === dn.id && r.status === "ACTIVE")
+          .map(r => ({
+            id: `AUDIT-${Date.now()}-${r.id}-TRANSFER`,
+            reservationId: r.id,
+            itemName: r.itemName,
+            sku: orderItems.find(o => o.id === r.itemId)?.sku ?? "-",
+            qty: r.qty,
+            unit: r.unit,
+            warehouse: vanWh,
+            sourceSOId: soId || undefined,
+            sourceSONumber: soRecord?.orderNo,
+            linkedDNId: dn.id,
+            linkedDNNumber: dn.id,
+            eventType: "Warehouse Transfer" as const,
+            triggeredBy: "Admin",
+            date: dateStr,
+            time: timeStr,
+            reservationType: r.type,
+            status: "ACTIVE" as const,
+            note: `Moved to ${vanWh} after transfer`,
+          })),
+        ...prev,
+      ]);
     }
   };
 
@@ -642,10 +702,10 @@ export function SalesOrderDetails({ orderId, onBack, onNavigateToDeliveryNotes, 
       };
     }));
 
-    // Restore CONSUMED reservations back to ACTIVE
+    // Unlink reservations from the canceled DN
     setReservations(prev => prev.map(r => {
-      if (r.linkedDNId === dn.id && r.status === "CONSUMED") {
-        return { ...r, status: "ACTIVE" as const, linkedDNId: undefined, linkedDNNumber: undefined };
+      if (r.linkedDNId === dn.id && r.status === "ACTIVE") {
+        return { ...r, linkedDNId: undefined, linkedDNNumber: undefined };
       }
       return r;
     }));
@@ -668,31 +728,85 @@ export function SalesOrderDetails({ orderId, onBack, onNavigateToDeliveryNotes, 
     }
   };
 
-  const handleRevokeReservation = (id: string, reason?: string) => {
+  const handleCancelReservation = (id: string, reason?: string) => {
     const target = reservations.find(r => r.id === id);
+    const groupId = target?.groupId;
+    const toCancel = groupId
+      ? reservations.filter(r => r.groupId === groupId && r.status === "ACTIVE")
+      : target ? [target] : [];
+
     setReservations(prev => prev.map(r =>
-      r.id === id ? { ...r, status: "REVOKED" } : r
+      toCancel.some(c => c.id === r.id) ? { ...r, status: "CANCELED" as const } : r
     ));
-    addSOAudit({ action: "reservation_revoked", by: "Admin", linkedId: id, linkedLabel: id });
-    if (target) {
+    addSOAudit({ action: "reservation_canceled", by: "Admin", linkedId: id, linkedLabel: groupId ?? id });
+    if (toCancel.length > 0) {
       const now = new Date();
-      const oi = orderItems.find(o => o.id === target.itemId);
-      setReservationAuditLog(prev => [{
-        id: `AUDIT-${Date.now()}-${id}`,
-        reservationId: id,
-        itemName: target.itemName,
-        sku: oi?.sku ?? "-",
-        qty: target.qty,
-        unit: target.unit,
-        warehouse: target.warehouse ?? "-",
-        sourceSOId: soId || undefined,
-        sourceSONumber: soRecord?.orderNo,
-        eventType: "Manually Deleted" as const,
-        triggeredBy: "Admin",
-        date: now.toISOString().split("T")[0],
-        time: now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
-      }, ...prev]);
+      const dateStr = now.toISOString().split("T")[0];
+      const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+      setReservationAuditLog(prev => [
+        ...toCancel.map(res => ({
+          id: `AUDIT-${Date.now()}-${res.id}`,
+          reservationId: res.id,
+          itemName: res.itemName,
+          sku: orderItems.find(o => o.id === res.itemId)?.sku ?? "-",
+          qty: res.qty,
+          unit: res.unit,
+          warehouse: res.warehouse ?? "-",
+          sourceSOId: soId || undefined,
+          sourceSONumber: soRecord?.orderNo,
+          eventType: "Manually Deleted" as const,
+          triggeredBy: "Admin",
+          date: dateStr,
+          time: timeStr,
+          reservationType: res.type,
+          status: "CANCELED" as const,
+          note: reason || "Reservation canceled manually",
+        })),
+        ...prev,
+      ]);
     }
+  };
+
+  const handleEditReservation = (id: string, newQty: number) => {
+    const target = reservations.find(r => r.id === id);
+    if (!target) return;
+
+    const family = getProductFamily(target.itemId);
+    const newQtyBase = family ? toBase(newQty, target.unit, family) : newQty;
+    const oldQty = target.qty;
+
+    setReservations(prev => prev.map(r => 
+      r.id === id ? { ...r, qty: newQty, qtyBase: newQtyBase } : r
+    ));
+
+    addSOAudit({ 
+      action: "reservation_edited", 
+      by: "Admin", 
+      linkedId: id, 
+      linkedLabel: id,
+      note: `Qty changed from ${oldQty} to ${newQty} for ${target.itemName}` 
+    });
+
+    const now = new Date();
+    const oi = orderItems.find(o => o.id === target.itemId);
+    setReservationAuditLog(prev => [{
+      id: `AUDIT-${Date.now()}-${id}-EDIT`,
+      reservationId: id,
+      itemName: target.itemName,
+      sku: oi?.sku ?? "-",
+      qty: newQty,
+      unit: target.unit,
+      warehouse: target.warehouse ?? "-",
+      sourceSOId: soId || undefined,
+      sourceSONumber: soRecord?.orderNo,
+      eventType: "Edited" as const,
+      triggeredBy: "Admin",
+      date: now.toISOString().split("T")[0],
+      time: now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+      reservationType: target.type,
+      status: "ACTIVE" as const,
+      note: `Qty changed from ${oldQty} to ${newQty}`
+    }, ...prev]);
   };
 
   const handleCreateFreeReservation = () => {
@@ -735,6 +849,8 @@ export function SalesOrderDetails({ orderId, onBack, onNavigateToDeliveryNotes, 
         triggeredBy: "Admin",
         date: manualDate,
         time: manualTime,
+        reservationType: res.type,
+        status: "ACTIVE" as const,
       })),
       ...prev,
     ]);
@@ -834,6 +950,24 @@ export function SalesOrderDetails({ orderId, onBack, onNavigateToDeliveryNotes, 
     return "Undelivered";
   };
 
+  if (!soRecord) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center bg-[#f5f5f7] p-6">
+        <div className="bg-white border border-gray-200 rounded-xl p-8 max-w-sm text-center shadow-sm">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-base font-bold text-gray-900 mb-1">Sales Order Not Found</h3>
+          <p className="text-[13px] text-gray-500 mb-6">The sales order record may have been deleted or reset.</p>
+          <button
+            onClick={onBack}
+            className="px-5 py-2 rounded-md bg-[#1a1a2e] hover:bg-[#2e2e4e] text-white text-[13px] font-medium transition-colors"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const deliveryStatus = getDeliveryStatus();
   const hasActiveDNs = deliveryNotes.some(dn => dn.status === "PENDING" || dn.status === "PROCESSING");
   const allItemsDelivered = orderItems.every(item => item.totalQty - (dnDeliveredQty[item.id] ?? 0) <= 0);
@@ -894,16 +1028,6 @@ export function SalesOrderDetails({ orderId, onBack, onNavigateToDeliveryNotes, 
             <div className="flex items-center gap-2">
               <h1 className="text-[20px] font-semibold text-[#1a1a2e]">{soRecord?.orderNo || orderId || "PRO-1734-89"}</h1>
               <button className="text-[#b0b0be] hover:text-[#4a4a5a]"><Copy className="w-4 h-4 text-gray-400" /></button>
-              
-              {status === "APPROVED" && soReservations.filter(r => r.status === "ACTIVE").length > 0 && (
-                <button 
-                  onClick={() => setIsReservationModalOpen(true)}
-                  className="flex items-center gap-1.5 px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-md border border-indigo-100 text-[11px] font-bold hover:bg-indigo-100 transition-colors ml-2"
-                >
-                  <Bookmark className="w-3 h-3" />
-                  {soReservations.filter(r => r.status === "ACTIVE").length} items reserved
-                </button>
-              )}
             </div>
             {deliveryNotes.length > 0 && (
               <span className="text-[11px] text-[#4f6ef7] font-medium flex items-center gap-1">
@@ -1064,15 +1188,34 @@ export function SalesOrderDetails({ orderId, onBack, onNavigateToDeliveryNotes, 
               <div className="p-5 pt-6 grid grid-cols-2 gap-8">
                 <div>
                   <h3 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-4">STATUS</h3>
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-[11px] text-gray-500 mb-1">Order</p>
+                  <div className="space-y-2.5">
+                    <div className="flex items-center gap-3">
+                      <p className="text-[11px] text-gray-500 w-[72px] shrink-0">Order</p>
                       <span className="inline-flex items-center px-2 py-0.5 rounded-[4px] text-[11px] font-semibold uppercase shadow-sm transition-all" style={{ backgroundColor: status === "REJECTED" ? '#fee2e2' : status === "APPROVED" || status === "INVOICED" ? '#dcfce7' : '#fef0c7', color: status === "REJECTED" ? '#991b1b' : status === "APPROVED" || status === "INVOICED" ? '#166534' : '#dc6803' }}>
                         {status === "INVOICED" ? "Approved" : status}
                       </span>
                     </div>
-                    <div>
-                      <p className="text-[11px] text-gray-500 mb-1">Delivery</p>
+                    {(() => {
+                      const activeCount = soReservations.filter(r => r.status === "ACTIVE").length;
+                      return (
+                        <div className="flex items-center gap-3">
+                          <p className="text-[11px] text-gray-500 w-[72px] shrink-0">Reserved</p>
+                          {activeCount > 0 ? (
+                            <button
+                              onClick={() => setIsReservationModalOpen(true)}
+                              className="flex items-center gap-1.5 px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-md border border-indigo-100 text-[11px] font-bold hover:bg-indigo-100 transition-colors"
+                            >
+                              <Bookmark className="w-3 h-3" />
+                              {activeCount} items reserved
+                            </button>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-[4px] text-[11px] font-semibold uppercase bg-gray-50 text-gray-400">No records</span>
+                          )}
+                        </div>
+                      );
+                    })()}
+                    <div className="flex items-center gap-3">
+                      <p className="text-[11px] text-gray-500 w-[72px] shrink-0">Delivery</p>
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-[4px] text-[11px] font-semibold uppercase ${
                         deliveryStatus === "Delivered" ? "bg-green-50 text-green-700" :
                         deliveryStatus === "Partially Delivered" ? "bg-amber-50 text-amber-700" :
@@ -1081,42 +1224,29 @@ export function SalesOrderDetails({ orderId, onBack, onNavigateToDeliveryNotes, 
                         {deliveryStatus}
                       </span>
                     </div>
-                    {paymentStatus !== null && (
-                      <div>
-                        <p className="text-[11px] text-gray-500 mb-1">Payment</p>
-                        <div className="flex items-center gap-2">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-[4px] text-[11px] font-semibold uppercase ${paymentStatus === "PAID" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>
-                            {paymentStatus}
-                          </span>
-                          {paymentStatus === "UNPAID" && (
-                            <button onClick={() => { setPaymentStatus("PAID"); addSOAudit({ action: "payment_marked_paid", by: "Admin" }); }} className="text-[10px] text-green-600 font-bold hover:underline">Mark Paid</button>
-                          )}
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
 
                 <div>
                   <h3 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-4">DETAILS</h3>
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-                    <div>
-                      <p className="text-[11px] text-gray-500 mb-1">Client</p>
+                  <div className="space-y-2.5">
+                    <div className="flex items-center gap-3">
+                      <p className="text-[11px] text-gray-500 w-[72px] shrink-0">Client</p>
                       <p className="text-[13px] font-semibold text-gray-900 leading-tight">{soRecord?.clientName || "test 666 11717"}</p>
                     </div>
-                    <div>
-                      <p className="text-[11px] text-gray-500 mb-1">Order Date</p>
+                    <div className="flex items-center gap-3">
+                      <p className="text-[11px] text-gray-500 w-[72px] shrink-0">Order Date</p>
                       <p className="text-[12px] font-semibold text-gray-900">{soRecord?.issueDate || "Apr 7, 2026"}</p>
                     </div>
-                    <div>
-                      <p className="text-[11px] text-gray-500 mb-1">Created By</p>
+                    <div className="flex items-center gap-3">
+                      <p className="text-[11px] text-gray-500 w-[72px] shrink-0">Created By</p>
                       <div className="flex items-center gap-2">
                         <p className="text-[12px] font-semibold text-gray-900">{soRecord?.creator || "Ahmad Alshaikh"}</p>
                         <span className="inline-flex items-center px-2 py-0.5 rounded-[4px] text-[10px] font-medium bg-gray-100 text-gray-600 border border-gray-200">Rep</span>
                       </div>
                     </div>
-                    <div>
-                      <p className="text-[11px] text-gray-500 mb-1">Comment</p>
+                    <div className="flex items-center gap-3">
+                      <p className="text-[11px] text-gray-500 w-[72px] shrink-0">Comment</p>
                       <p className="text-[12px] font-semibold italic text-gray-500">"5555"</p>
                     </div>
                   </div>
@@ -1214,8 +1344,13 @@ export function SalesOrderDetails({ orderId, onBack, onNavigateToDeliveryNotes, 
                     <div className="flex items-center gap-2 pl-3.5">
                       <span className="flex items-center gap-1 text-[11px] text-gray-500 shrink-0"><User className="w-3 h-3 text-gray-400 shrink-0" />{dn.rep}</span>
                       {(() => {
-                        const whs = [...new Set(dn.items.map(i => i.warehouse).filter(Boolean))];
-                        const label = whs.length === 1 ? whs[0] : whs.length > 1 ? `${whs.length} warehouses` : dn.warehouse ?? null;
+                        const isTransferred = dn.status === "PROCESSING" || dn.status === "APPROVED";
+                        const label = isTransferred
+                          ? getRepVanWarehouse(dn.rep)
+                          : (() => {
+                              const whs = [...new Set(dn.items.map(i => i.warehouse).filter(Boolean))];
+                              return whs.length === 1 ? whs[0] : whs.length > 1 ? `${whs.length} warehouses` : dn.warehouse ?? null;
+                            })();
                         return label ? <span className="flex items-center gap-1 text-[11px] text-gray-500 shrink-0"><Box className="w-3 h-3 text-gray-400 shrink-0" />{label}</span> : null;
                       })()}
                       {relatedTransfer && onNavigateToTransfer && (
@@ -1397,6 +1532,7 @@ export function SalesOrderDetails({ orderId, onBack, onNavigateToDeliveryNotes, 
         reservations={soReservations}
         items={orderItems}
         soCreatedBy="Ahmad Alshaikh"
+        skipReservations={preventInvoiceReservations}
       />
 
       <CreateDeliveryNoteModal
@@ -1412,7 +1548,7 @@ export function SalesOrderDetails({ orderId, onBack, onNavigateToDeliveryNotes, 
         forceReservationTab={status === "INVOICED" && soReservations.some(r => r.status === "ACTIVE" && r.warehouse)}
         manualDnItemIds={new Set(
           dnList
-            .filter(dn => dn.sourceSOId === soId && dn.isManual && dn.status !== "CANCELED")
+            .filter(dn => dn.sourceSOId === soId && dn.status !== "CANCELED")
             .flatMap(dn => dn.itemsData?.map(i => i.id) || [])
         )}
       />
@@ -1420,8 +1556,9 @@ export function SalesOrderDetails({ orderId, onBack, onNavigateToDeliveryNotes, 
       <ReservationDetailsModal
         isOpen={isReservationModalOpen}
         onClose={() => setIsReservationModalOpen(false)}
-        reservations={soReservations}
-        onRevoke={handleRevokeReservation}
+        reservations={soReservations.map(r => ({ ...r, warehouse: r.warehouse ?? "" }))}
+        onRevoke={handleCancelReservation}
+        onEdit={handleEditReservation}
       />
 
       <CreateReservationModal

@@ -18,6 +18,7 @@ import {
   ExternalLink,
   X,
   FileText,
+  Bookmark,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "../ui/dialog";
 import { CreateDNFromReservationModal, DNReservationItem } from "./CreateDNFromReservationModal";
@@ -30,7 +31,7 @@ interface InvoiceDetailsPageProps {
   onBack: () => void;
   onNavigateToSO?: (soId: string) => void;
   onNavigateToDN?: (dnId: string) => void;
-  onCreatePickupNote?: (invoiceId: string) => void;
+  onCreateReturnNote?: (invoiceId: string) => void;
 }
 
 interface InvoiceItem {
@@ -102,11 +103,12 @@ export function InvoiceDetailsPage({
   onNavigateToSO,
   onNavigateToDN,
 }: InvoiceDetailsPageProps) {
-  const { 
-    invoices, setInvoices, 
+  const {
+    invoices, setInvoices,
     setDnList, dnList,
     reservations, setReservations,
-    setReservationAuditLog
+    reservationAuditLog, setReservationAuditLog,
+    setTransferList
   } = useAppData();
   const parseJOD = (s: string) => parseFloat(s.replace(/[^0-9.]/g, "")) || 0;
 
@@ -277,7 +279,8 @@ export function InvoiceDetailsPage({
       id: newDN.id,
       dnNumber: newDN.id,
       status: "PENDING",
-      sourceInvoiceId: invoice!.id,
+      sourceSOId: invoice!.id,
+      sourceSONumber: invoice!.serialNo,
       clientName: invoice!.clientName,
       rep: data.rep,
       createdBy: "Admin",
@@ -290,10 +293,39 @@ export function InvoiceDetailsPage({
         sku: invoice!.items.find(ii => ii.id === di.itemId)?.sku ?? "-",
         qty: di.qty,
         unit: di.unit,
-        qtyBase: di.qty, // Assuming base unit for invoices
+        qtyBase: di.qty,
+        soQty: invoice!.items.find(ii => ii.id === di.itemId)?.orderedQty ?? di.qty,
+        soUnit: di.unit,
         delivered: 0,
         warehouse: di.warehouse,
       }))
+    }, ...prev]);
+
+    // Create linked Transfer
+    const newTransferId = `TR-${Math.floor(Math.random() * 9000 + 1000)}`;
+    setTransferList(prev => [{
+      id: newTransferId,
+      serialNo: newTransferId,
+      createdAt: new Date().toLocaleDateString("en-GB"),
+      createdBy: "Admin",
+      from: data.items[0]?.warehouse || "-",
+      to: `${data.rep} Van Warehouse`,
+      type: "LOAD",
+      status: "PENDING",
+      numberOfProducts: data.items.length,
+      sourceDNId: newDN.id,
+      sourceDNNumber: newDN.id,
+      items: data.items.map(di => ({
+        id: di.itemId,
+        productId: di.itemId,
+        sku: invoice!.items.find(ii => ii.id === di.itemId)?.sku ?? "-",
+        productName: invoice!.items.find(ii => ii.id === di.itemId)?.name ?? di.itemId,
+        variantName: "-",
+        measureUnit: di.unit,
+        quantity: di.qty,
+        originQty: 0,
+        destQty: 0
+      })),
     }, ...prev]);
 
     // 2. Consume Global Reservations
@@ -321,7 +353,7 @@ export function InvoiceDetailsPage({
         updatedReservations = updatedReservations.map(r => {
           if (r.id === res.id) {
             const newQtyBase = r.qtyBase - consumed;
-            if (newQtyBase <= 0) return { ...r, qty: 0, qtyBase: 0, status: "CONSUMED" as const, linkedDNId: newDN.id, linkedDNNumber: newDN.id };
+            if (newQtyBase <= 0) return { ...r, qty: 0, qtyBase: 0, status: "REVOKED" as const, linkedDNId: newDN.id, linkedDNNumber: newDN.id };
             const family = getProductFamily(r.itemId);
             const factor = family ? getUnitFactor(r.unit, family) : 1;
             return { ...r, qty: factor > 0 ? newQtyBase / factor : 0, qtyBase: newQtyBase };
@@ -341,11 +373,13 @@ export function InvoiceDetailsPage({
           sourceInvoiceNumber: invoice!.serialNo,
           linkedDNId: newDN.id,
           linkedDNNumber: newDN.id,
-          eventType: "Used in DN" as const,
+          eventType: "Used in delivery note" as const,
           triggeredBy: "Admin",
           date: dateStr,
           time: timeStr,
-          note: `Consumed by DN ${newDN.id}`
+          note: `Consumed by delivery note ${newDN.id}`,
+          reservationType: res.type,
+          status: "REVOKED" as const,
         });
       });
     });
@@ -606,7 +640,7 @@ export function InvoiceDetailsPage({
                   onClick={() => setShowCreateDN(true)}
                   className="flex items-center gap-1.5 px-4 py-1.5 rounded-md bg-[#1a1a2e] hover:bg-[#111827] text-white text-[13px] font-medium transition-colors shadow-sm"
                 >
-                  <Plus className="w-3.5 h-3.5" /> Create DN
+                  <Plus className="w-3.5 h-3.5" /> Create Delivery Note
                 </button>
               </div>
 
@@ -616,7 +650,7 @@ export function InvoiceDetailsPage({
                     <Truck className="w-5 h-5 text-[#d0d0dc]" />
                   </div>
                   <p className="text-[13px] font-semibold text-[#4a4a5a]">No delivery notes yet</p>
-                  <p className="text-[12px] text-[#8b8b9e] mt-1">Click "Create DN" to start delivery</p>
+                  <p className="text-[12px] text-[#8b8b9e] mt-1">Click "Create Delivery Note" to start delivery</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -651,7 +685,9 @@ export function InvoiceDetailsPage({
                                 <User className="w-3.5 h-3.5 text-[#8b8b9e]" /> {dn.rep}
                               </span>
                             </td>
-                            <td className="px-4 py-3.5 text-[#4a4a5a]">{dn.warehouse || "-"}</td>
+                            <td className="px-4 py-3.5 text-[#4a4a5a]">
+                              {(dn.status === "PROCESSING" || dn.status === "APPROVED") ? `${dn.rep} Van Warehouse` : (dn.warehouse || "-")}
+                            </td>
                             <td className="px-4 py-3.5 text-[#8b8b9e] text-[12px]">{dn.date}</td>
                             <td className="px-5 py-3.5">
                               <span className={`inline-flex items-center px-2 py-0.5 rounded-[4px] text-[11px] font-bold ${s.bg} ${s.text}`}>
@@ -670,6 +706,63 @@ export function InvoiceDetailsPage({
               )}
             </div>
           )}
+
+          {/* ── Card 2b: Reservations ── */}
+          {(() => {
+            const invoiceReservations = reservations.filter(
+              r => r.sourceInvoiceId === invoiceId || r.sourceInvoiceId === record!.id
+            );
+            if (invoiceReservations.length === 0) return null;
+            const activeCount = invoiceReservations.filter(r => r.status === "ACTIVE").length;
+            return (
+              <div className="bg-white border border-[#e8e8ec] rounded-xl shadow-sm overflow-hidden">
+                <div className="flex items-center gap-2.5 px-6 py-4 border-b border-[#e8e8ec]">
+                  <Bookmark className="w-4 h-4 text-indigo-500" />
+                  <span className="text-[14px] font-bold text-[#1a1a2e]">Reservations</span>
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-indigo-500 text-white text-[10px] font-bold">
+                    {invoiceReservations.length}
+                  </span>
+                  {activeCount > 0 && (
+                    <span className="px-2 py-0.5 rounded-[4px] bg-indigo-50 text-indigo-600 text-[10px] font-bold border border-indigo-100">
+                      {activeCount} Active
+                    </span>
+                  )}
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[13px]">
+                    <thead>
+                      <tr className="bg-[#f7f7f9] border-b border-[#e8e8ec]">
+                        <th className="text-left text-[11px] font-semibold text-[#8b8b9e] uppercase tracking-wider px-5 py-3">Item</th>
+                        <th className="text-left text-[11px] font-semibold text-[#8b8b9e] uppercase tracking-wider px-4 py-3">Warehouse</th>
+                        <th className="text-right text-[11px] font-semibold text-[#8b8b9e] uppercase tracking-wider px-4 py-3">Reserved Qty</th>
+                        <th className="text-left text-[11px] font-semibold text-[#8b8b9e] uppercase tracking-wider px-5 py-3">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {invoiceReservations.map(res => (
+                        <tr key={res.id} className="border-b border-[#f0f0f3] hover:bg-[#f7f7f9] transition-colors">
+                          <td className="px-5 py-3.5 font-medium text-[#1a1a2e]">{res.itemName}</td>
+                          <td className="px-4 py-3.5 text-[#4a4a5a]">{res.warehouse || "-"}</td>
+                          <td className="px-4 py-3.5 text-right font-semibold text-[#1a1a2e]">
+                            {res.qty} <span className="text-[#8b8b9e] font-normal">{res.unit}</span>
+                          </td>
+                          <td className="px-5 py-3.5">
+                            {res.status === "ACTIVE" ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-[4px] text-[11px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-100">Active</span>
+                            ) : res.status === "REVOKED" ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-[4px] text-[11px] font-bold bg-[#ecfdf3] text-[#12b76a] border border-[#c3fae8]">Delivered</span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-[4px] text-[11px] font-bold bg-[#fff1f0] text-[#e41e3f] border border-[#ffe3e3]">Canceled</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* ── Card 3: Invoice Items ── */}
           <div className="bg-white border border-[#e8e8ec] rounded-xl shadow-sm overflow-hidden">

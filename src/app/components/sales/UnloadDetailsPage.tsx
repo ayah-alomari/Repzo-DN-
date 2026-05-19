@@ -257,7 +257,7 @@ export function UnloadDetailsPage({ unloadId, onBack }: UnloadDetailsPageProps) 
               <div className="space-y-4">
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-1.5 text-[11px] text-gray-400 font-medium uppercase tracking-wide">
-                    <Truck className="w-3.5 h-3.5 text-gray-400" /> Source DN
+                    <Truck className="w-3.5 h-3.5 text-gray-400" /> Source Delivery Note
                   </div>
                   {initialRecord?.dnId ? (
                     <button

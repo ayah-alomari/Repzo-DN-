@@ -17,11 +17,11 @@ import {
 } from "../ui/select";
 import {
   Truck, AlertTriangle, Info, Pencil, Lock, ArrowLeft, Bookmark,
-  CheckCircle2, XCircle, Minus, X
+  CheckCircle2, XCircle, Minus
 } from "lucide-react";
 import { Checkbox } from "../ui/checkbox";
 
-import { MOCK_STOCK, getWhStatus } from "../../context/AppDataContext";
+import { MOCK_STOCK, getWhStatus, useAppData } from "../../context/AppDataContext";
 import { getProductFamily, getUnitFactor, getBaseUnit, toBase } from "./measurementUnits";
 const ITEM_WAREHOUSE_STATUS = getWhStatus;
 
@@ -86,8 +86,13 @@ export function CreateDeliveryNoteModal({
   const [selectedResIds, setSelectedResIds] = useState<Set<string>>(new Set());
   const [resQtys, setResQtys] = useState<Record<string, number>>({});
 
-  const allSoReservations = reservations.filter(r => (r.status === "ACTIVE" || r.status === "REVOKED" || r.status === "CONSUMED") && r.warehouse);
-  const activeReservations = allSoReservations.filter(r => r.status === "ACTIVE" && r.qty > 0);
+  const { allowMultiWarehouseReservation } = useAppData();
+  const [globalWarehouse, setGlobalWarehouse] = useState("");
+
+  const allSoReservations = reservations.filter(r => r.status === "ACTIVE" && r.warehouse && r.qty > 0);
+  const activeReservations = allSoReservations;
+  const activeRes = reservations.find(r => r.status === "ACTIVE" && r.warehouse);
+  const globalWarehouseLocked = !allowMultiWarehouseReservation && !!activeRes?.warehouse;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -109,7 +114,7 @@ export function CreateDeliveryNoteModal({
     // Pre-fill per-item warehouses from active reservations
     const initialWh: Record<string, string> = {};
     items.forEach(item => {
-      const res = reservations.find(r => r.itemId === item.id && (r.status === "ACTIVE" || r.status === "CONSUMED") && r.warehouse);
+      const res = reservations.find(r => r.itemId === item.id && r.status === "ACTIVE" && r.warehouse);
       if (res?.warehouse) initialWh[item.id] = res.warehouse;
     });
     setItemWarehouses(initialWh);
@@ -137,7 +142,22 @@ export function CreateDeliveryNoteModal({
     setView("main");
     setShowOnlyNegative(false);
     setNavigateToDN(false);
+
+    const activeRes = reservations.find(r => r.status === "ACTIVE" && r.warehouse);
+    if (!allowMultiWarehouseReservation && activeRes?.warehouse) {
+      setGlobalWarehouse(activeRes.warehouse);
+    } else {
+      setGlobalWarehouse("");
+    }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!allowMultiWarehouseReservation && globalWarehouse) {
+      const synced: Record<string, string> = {};
+      items.forEach(item => { synced[item.id] = globalWarehouse; });
+      setItemWarehouses(synced);
+    }
+  }, [globalWarehouse, allowMultiWarehouseReservation]);
 
   // Per-item stock rows for the stock view (manual tab only)
   const stockRows = items.map(item => {
@@ -209,7 +229,9 @@ export function CreateDeliveryNoteModal({
 
   const manualCanConfirm = !!(
     selectedRep &&
-    Object.entries(deliveryQtys).some(([id, qty]) => qty > 0 && itemWarehouses[id] && selectedManualIds.has(id))
+    (allowMultiWarehouseReservation
+      ? Object.entries(deliveryQtys).some(([id, qty]) => qty > 0 && itemWarehouses[id] && selectedManualIds.has(id))
+      : globalWarehouse && Object.entries(deliveryQtys).some(([id, qty]) => qty > 0 && selectedManualIds.has(id)))
   );
   const resCanConfirm = !!(selectedRep && selectedResIds.size > 0);
 
@@ -372,9 +394,36 @@ export function CreateDeliveryNoteModal({
                     <Label className="text-[13px] font-bold text-gray-800">Delivery Quantities</Label>
                     <div className="flex items-center gap-1.5 text-[11px] text-[#4f6ef7] bg-[#f0f4ff] px-2 py-1 rounded-md">
                       <Info className="w-3.5 h-3.5" />
-                      <span>Select a warehouse per item</span>
+                      <span>{allowMultiWarehouseReservation ? "Select a warehouse per item" : "One warehouse for all items"}</span>
                     </div>
                   </div>
+
+                  {!allowMultiWarehouseReservation && (
+                    <div className="flex items-center gap-3">
+                      <Label className="text-[12px] font-semibold text-gray-700 shrink-0">Warehouse</Label>
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={globalWarehouse}
+                          onValueChange={setGlobalWarehouse}
+                          disabled={globalWarehouseLocked}
+                        >
+                          <SelectTrigger className="h-9 border-gray-200 text-[13px] w-[260px] disabled:bg-indigo-50/60 disabled:text-indigo-800 disabled:border-indigo-100 disabled:font-semibold">
+                            <SelectValue placeholder="Select warehouse..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {warehouses.map(wh => (
+                              <SelectItem key={wh} value={wh}>{wh}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {globalWarehouseLocked && (
+                          <span className="text-[11px] font-bold px-2 py-1 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100 flex items-center gap-1">
+                            <Lock className="w-3.5 h-3.5 text-indigo-400" /> Locked by Reservation
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="border border-gray-100 rounded-lg overflow-hidden shadow-sm">
                     <table className="w-full text-[13px]">
@@ -392,7 +441,9 @@ export function CreateDeliveryNoteModal({
                           </th>
                           <th className="text-left px-4 py-2.5 text-[11px] font-bold text-gray-500 uppercase">Item</th>
                           <th className="text-center px-4 py-2.5 text-[11px] font-bold text-gray-500 uppercase">Ordered</th>
-                          <th className="text-left px-4 py-2.5 text-[11px] font-bold text-gray-500 uppercase">Warehouse</th>
+                          {allowMultiWarehouseReservation && (
+                            <th className="text-left px-4 py-2.5 text-[11px] font-bold text-gray-500 uppercase">Warehouse</th>
+                          )}
                           <th className="text-center px-4 py-2.5 text-[11px] font-bold text-gray-500 uppercase">Remaining</th>
                           <th className="text-right px-4 py-2.5 text-[11px] font-bold text-gray-500 uppercase">Delivery Qty</th>
                         </tr>
@@ -410,7 +461,7 @@ export function CreateDeliveryNoteModal({
                             ? family.units.filter(u => remainingBase > 0 && u.factor <= remainingBase)
                             : null;
                           const isLocked = remainingBase <= 0;
-                          const existingRes = reservations.find((r: any) => r.itemId === item.id && (r.status === "ACTIVE" || r.status === "CONSUMED") && r.warehouse && r.qty > 0);
+                          const existingRes = reservations.find((r: any) => r.itemId === item.id && r.status === "ACTIVE" && r.warehouse && r.qty > 0);
                           const whFromReservation = existingRes?.warehouse as string | undefined;
                           const hasActiveNote = item.notedQty > 0 && remainingBase > 0;
                           const notedInUnit = selFactor > 0 ? Math.floor(item.notedQty / selFactor) : item.notedQty;
@@ -447,7 +498,7 @@ export function CreateDeliveryNoteModal({
                                   <p className="font-semibold text-gray-900">{item.name}</p>
                                   {isLocked && (
                                     <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
-                                      <Lock className="w-2.5 h-2.5" /> In Active DN
+                                      <Lock className="w-2.5 h-2.5" /> In Active Delivery Note
                                     </span>
                                   )}
                                   {hasActiveNote && (
@@ -462,6 +513,7 @@ export function CreateDeliveryNoteModal({
                                 <span className="text-[13px] font-semibold text-indigo-700">{item.totalQty}</span>
                                 <span className="text-[11px] text-gray-400 ml-1">{item.unit}</span>
                               </td>
+                              {allowMultiWarehouseReservation && (
                               <td className="px-4 py-3">
                                 {whFromReservation ? (
                                   <div className="flex items-center gap-1.5 h-8 px-2.5 rounded-md bg-indigo-50 border border-indigo-100 text-[12px] font-semibold text-indigo-800 min-w-[155px]">
@@ -511,6 +563,7 @@ export function CreateDeliveryNoteModal({
                                 </Select>
                                 )}
                               </td>
+                              )}
                               <td className="px-4 py-3 text-center">
                                 <span className={`text-[13px] font-medium ${remainingBase > 0 ? "text-gray-900" : "text-gray-400"}`}>
                                   {maxInUnit} {selUnit}
@@ -580,9 +633,7 @@ export function CreateDeliveryNoteModal({
                             const positiveResIds = activeReservations
                               .filter(r => {
                                 const stock = MOCK_STOCK[r.itemId]?.[r.warehouse] || 0;
-                                const reserved = Math.floor(stock * 0.2); 
-                                const available = stock - reserved;
-                                return r.qtyBase <= available;
+                                return r.qtyBase <= stock && !r.linkedDNId;
                               })
                               .map(r => r.id);
 
@@ -602,9 +653,25 @@ export function CreateDeliveryNoteModal({
                         <table className="w-full text-[13px]">
                           <thead className="bg-gray-50">
                             <tr className="border-b border-gray-100">
-                              <th className="px-4 py-2.5 w-10"></th>
+                              <th className="px-4 py-2.5 w-10 text-center">
+                                {(() => {
+                                  const selectableResIds = activeReservations.filter(r => !r.linkedDNId).map(r => r.id);
+                                  const allSelected = selectableResIds.length > 0 && selectableResIds.every(id => selectedResIds.has(id));
+                                  return (
+                                    <Checkbox
+                                      checked={allSelected}
+                                      onCheckedChange={val => {
+                                        if (val) setSelectedResIds(new Set(selectableResIds));
+                                        else setSelectedResIds(new Set());
+                                      }}
+                                      className="mx-auto"
+                                    />
+                                  );
+                                })()}
+                              </th>
                               <th className="text-left px-4 py-2.5 text-[11px] font-bold text-gray-500 uppercase">Item</th>
                               <th className="text-left px-4 py-2.5 text-[11px] font-bold text-gray-500 uppercase">Warehouse</th>
+                              <th className="text-center px-4 py-2.5 text-[11px] font-bold text-gray-500 uppercase">Pending to Deliver</th>
                               <th className="text-center px-4 py-2.5 text-[11px] font-bold text-gray-500 uppercase">Reserved</th>
                               <th className="text-right px-4 py-2.5 text-[11px] font-bold text-gray-500 uppercase">Deliver Qty</th>
                             </tr>
@@ -617,18 +684,15 @@ export function CreateDeliveryNoteModal({
                               const currentQty = resQtys[res.id] ?? res.qty;
 
                               const stock = MOCK_STOCK[res.itemId]?.[res.warehouse] || 0;
-                              const reservedStock = Math.floor(stock * 0.2);
-                              const available = stock - reservedStock;
-                              const isPositive = res.qtyBase <= available;
-                              const isConsumed = res.status === "CONSUMED";
-                              const isRevoked = res.status === "REVOKED";
-                              const hasManualDN = manualDnItemIds.has(res.itemId);
-                              const isLocked = isRevoked || isConsumed || !isPositive || hasManualDN;
+                              const isPositive = res.qtyBase <= stock;
+                              const isRevokedStatus = res.status === "REVOKED";
+                              const isCanceled = res.status === "CANCELED";
+                              const isLocked = isCanceled || isRevokedStatus || !isPositive || !!res.linkedDNId;
 
                               return (
                                 <tr
                                   key={res.id}
-                                  className={`transition-colors ${isRevoked ? "bg-gray-50/60 opacity-55" : !isPositive ? "opacity-60 grayscale-[0.5] cursor-not-allowed hover:bg-gray-50/50" : `cursor-pointer hover:bg-gray-50/50 ${checked ? "bg-indigo-50/20" : ""}`}`}
+                                  className={`transition-colors ${isCanceled ? "bg-gray-50/60 opacity-55" : !isPositive ? "opacity-60 grayscale-[0.5] cursor-not-allowed hover:bg-gray-50/50" : `cursor-pointer hover:bg-gray-50/50 ${checked ? "bg-indigo-50/20" : ""}`}`}
                                   onClick={() => {
                                     if (isLocked) return;
                                     setSelectedResIds(prev => {
@@ -640,42 +704,46 @@ export function CreateDeliveryNoteModal({
                                   }}
                                 >
                                   <td className="px-4 py-3 text-center" onClick={e => e.stopPropagation()}>
-                                    <Checkbox
-                                      checked={checked}
-                                      disabled={isLocked}
-                                      onCheckedChange={val => {
-                                        if (isLocked) return;
-                                        setSelectedResIds(prev => {
-                                          const next = new Set(prev);
-                                          if (val) next.add(res.id);
-                                          else next.delete(res.id);
-                                          return next;
-                                        });
-                                      }}
-                                    />
+                                    {isLocked ? (
+                                      <div className="flex justify-center" title={res.linkedDNId ? "Already noted for delivery" : "Locked"}>
+                                        <Lock className="w-3.5 h-3.5 text-gray-400" />
+                                      </div>
+                                    ) : (
+                                      <Checkbox
+                                        checked={checked}
+                                        onCheckedChange={val => {
+                                          setSelectedResIds(prev => {
+                                            const next = new Set(prev);
+                                            if (val) next.add(res.id);
+                                            else next.delete(res.id);
+                                            return next;
+                                          });
+                                        }}
+                                      />
+                                    )}
                                   </td>
                                   <td className="px-4 py-3">
-                                    <p className={`font-semibold ${isRevoked ? "text-gray-400" : "text-gray-900"}`}>{res.itemName}</p>
+                                    <p className={`font-semibold ${isCanceled ? "text-gray-400" : "text-gray-900"}`}>{res.itemName}</p>
                                     <div className="flex items-center gap-2 mt-1">
                                       <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 border border-indigo-100">
                                         {res.type === "AUTO" ? "Stock" : "Manual"}
                                       </span>
-                                      {hasManualDN && (
-                                        <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-red-50 text-red-600 border border-red-200 flex items-center gap-1">
-                                          <X className="w-2.5 h-2.5" /> Manual DN Exists
+                                      {res.linkedDNId && (
+                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
+                                          <Lock className="w-2.5 h-2.5" /> In Active Delivery Note
                                         </span>
                                       )}
-                                      {isConsumed && !hasManualDN && (
-                                        <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200 flex items-center gap-1">
-                                          <Bookmark className="w-2.5 h-2.5" /> In PENDING DN
+                                      {isRevokedStatus && !res.linkedDNId && (
+                                        <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-200 flex items-center gap-1">
+                                          <Bookmark className="w-2.5 h-2.5" /> Revoked (Delivered)
                                         </span>
                                       )}
-                                      {isRevoked && (
+                                      {isCanceled && (
                                         <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 border border-gray-200 flex items-center gap-1">
-                                          <CheckCircle2 className="w-2.5 h-2.5" /> Used in DN
+                                          <CheckCircle2 className="w-2.5 h-2.5" /> Canceled
                                         </span>
                                       )}
-                                      {!isRevoked && !isPositive && (
+                                      {!isCanceled && !isPositive && (
                                         <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-red-50 text-red-600 border border-red-100 flex items-center gap-1">
                                           <XCircle className="w-2.5 h-2.5" /> Negative Reservation
                                         </span>
@@ -684,11 +752,18 @@ export function CreateDeliveryNoteModal({
                                   </td>
                                   <td className="px-4 py-3">
                                     <span className="text-[12px] font-semibold text-gray-800">{res.warehouse}</span>
-                                    <p className="text-[10px] text-gray-400 font-bold mt-0.5">Avail: {available} {res.unit}</p>
+                                    <p className="text-[10px] text-gray-400 font-bold mt-0.5">Avail: {stock} {res.unit}</p>
                                   </td>
                                   <td className="px-4 py-3 text-center">
-                                    <span className="text-[13px] font-medium text-gray-900">{res.qty} {res.unit}</span>
-                                    {baseUnit && res.unit !== baseUnit.name && (
+                                    <span className="text-[13px] font-medium text-gray-500">
+                                      {res.linkedDNId ? `${res.qty} ${res.unit}` : "—"}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 text-center">
+                                    <span className={`text-[13px] font-medium ${!res.linkedDNId ? "text-gray-900" : "text-gray-400"}`}>
+                                      {!res.linkedDNId ? `${res.qty} ${res.unit}` : "—"}
+                                    </span>
+                                    {baseUnit && res.unit !== baseUnit.name && !res.linkedDNId && (
                                       <p className="text-[10px] text-gray-400 mt-0.5">{res.qtyBase} {baseUnit.name}</p>
                                     )}
                                   </td>
@@ -744,18 +819,24 @@ export function CreateDeliveryNoteModal({
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end items-center gap-3">
-              <Button variant="outline" onClick={onClose}
-                className="h-10 px-6 text-gray-700 font-medium hover:bg-white border-gray-200">
-                Cancel
-              </Button>
-              <Button
-                onClick={activeTab === "manual" ? handleConfirmManual : handleConfirmFromReservation}
-                disabled={activeTab === "manual" ? !manualCanConfirm : !resCanConfirm}
-                className="h-10 px-8 bg-[#1a1a2e] hover:bg-[#111827] text-white font-medium shadow-md transition-all active:scale-95 disabled:opacity-50"
-              >
-                Confirm Delivery
-              </Button>
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
+              <div className="flex items-center gap-2 text-[11.5px] text-blue-600 bg-blue-50/70 px-3 py-1.5 rounded-md border border-blue-100/50">
+                <Info className="w-3.5 h-3.5 shrink-0" />
+                <span className="font-medium">Creating this Delivery Note automatically generates a Transfer to the Rep's Van Warehouse.</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <Button variant="outline" onClick={onClose}
+                  className="h-10 px-6 text-gray-700 font-medium hover:bg-white border-gray-200">
+                  Cancel
+                </Button>
+                <Button
+                  onClick={activeTab === "manual" ? handleConfirmManual : handleConfirmFromReservation}
+                  disabled={activeTab === "manual" ? !manualCanConfirm : !resCanConfirm}
+                  className="h-10 px-8 bg-[#1a1a2e] hover:bg-[#111827] text-white font-medium shadow-md transition-all active:scale-95 disabled:opacity-50"
+                >
+                  Create
+                </Button>
+              </div>
             </div>
           </>
         )}

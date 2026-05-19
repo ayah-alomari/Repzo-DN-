@@ -25,7 +25,7 @@ interface TransferDetailsPageProps {
   onBack: () => void;
   onNavigateToDN?: (dnId: string) => void;
   onNavigateToUnload?: (unloadId: string) => void;
-  onNavigateToPNDetails?: (pnId: string) => void;
+  onNavigateToRNDetails?: (rnId: string) => void;
 }
 
 const STATUS_COLORS: Record<TransferStatus, { bg: string; text: string; border: string }> = {
@@ -53,7 +53,7 @@ function DetailField({
   );
 }
 
-export function TransferDetailsPage({ transferId, onBack, onNavigateToUnload, onNavigateToPNDetails }: TransferDetailsPageProps) {
+export function TransferDetailsPage({ transferId, onBack, onNavigateToUnload, onNavigateToRNDetails }: TransferDetailsPageProps) {
   const { 
     transferList, setTransferList, 
     setDnList, dnList,
@@ -64,6 +64,11 @@ export function TransferDetailsPage({ transferId, onBack, onNavigateToUnload, on
 
   const initial = transferList.find(t => t.id === transferId);
   const [record, setRecord] = useState<TransferRecord | null>(initial ?? null);
+
+  useEffect(() => {
+    const fresh = transferList.find(t => t.id === transferId);
+    setRecord(fresh ?? null);
+  }, [transferList, transferId]);
 
   const SELF_TYPE = "transfer";
   const selfId = transferId ?? "transfer";
@@ -401,7 +406,7 @@ export function TransferDetailsPage({ transferId, onBack, onNavigateToUnload, on
           </div>
 
           {/* Source Document card */}
-          {(record.sourceDNId || record.sourceUnloadId || record.sourcePNId) && (
+          {(record.sourceDNId || record.sourceUnloadId || record.sourceRNId) && (
             <div className="bg-white border border-gray-200 rounded-[8px] shadow-sm p-5">
               <h2 className="text-[12px] font-bold text-gray-700 uppercase tracking-wide mb-4">Source Document</h2>
               <div className="flex flex-wrap gap-4">
@@ -431,18 +436,18 @@ export function TransferDetailsPage({ transferId, onBack, onNavigateToUnload, on
                     )}
                   </div>
                 )}
-                {record.sourcePNId && (
+                {record.sourceRNId && (
                   <div className="flex flex-col gap-1">
-                    <span className="text-[11px] text-gray-400 font-medium uppercase tracking-wide">Pickup Note</span>
-                    {onNavigateToPNDetails ? (
+                    <span className="text-[11px] text-gray-400 font-medium uppercase tracking-wide">Return Note</span>
+                    {onNavigateToRNDetails ? (
                       <button
-                        onClick={() => onNavigateToPNDetails(record.sourcePNId!)}
+                        onClick={() => onNavigateToRNDetails(record.sourceRNId!)}
                         className="flex items-center gap-1.5 text-[13px] font-semibold text-[#4f6ef7] hover:underline"
                       >
-                        {record.sourcePNNumber ?? record.sourcePNId} <ExternalLink className="w-3.5 h-3.5" />
+                        {record.sourceRNNumber ?? record.sourceRNId} <ExternalLink className="w-3.5 h-3.5" />
                       </button>
                     ) : (
-                      <span className="text-[13px] font-semibold text-gray-800">{record.sourcePNNumber ?? record.sourcePNId}</span>
+                      <span className="text-[13px] font-semibold text-gray-800">{record.sourceRNNumber ?? record.sourceRNId}</span>
                     )}
                   </div>
                 )}

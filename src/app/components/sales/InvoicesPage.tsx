@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useId } from "react";
 import { useAppData } from "../../context/AppDataContext";
 import {
   Download,
@@ -104,6 +104,38 @@ const mockVoided: VoidedInvoiceData[] = [
   },
 ];
 
+type DotState = "empty" | "partial" | "full";
+
+function TrackDot({ state, color, label }: { state: DotState; color: string; label: string }) {
+  const uid = useId();
+  const clipId = `inv-td${uid.replace(/:/g, "")}`;
+  if (state === "full") {
+    return (
+      <div className="flex items-center justify-center" title={label}>
+        <svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.5" fill={color} /></svg>
+      </div>
+    );
+  }
+  if (state === "partial") {
+    return (
+      <div className="flex items-center justify-center" title={label}>
+        <svg width="14" height="14" viewBox="0 0 14 14">
+          <defs><clipPath id={clipId}><rect x="0" y="0" width="7" height="14" /></clipPath></defs>
+          <circle cx="7" cy="7" r="5.5" fill="none" stroke={color} strokeWidth="1.5" />
+          <circle cx="7" cy="7" r="5.5" fill={color} clipPath={`url(#${clipId})`} />
+        </svg>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center justify-center" title={label}>
+      <svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.5" fill="none" stroke="#d1d5db" strokeWidth="1.5" /></svg>
+    </div>
+  );
+}
+
+function parseAmt(s: string) { return parseFloat(s.replace(/[^0-9.]/g, "")) || 0; }
+
 const StatusBadge = ({ status }: { status: "PENDING" | "APPROVED" | "CANCELED" }) => {
   if (status === "PENDING") {
     return (
@@ -126,7 +158,7 @@ const StatusBadge = ({ status }: { status: "PENDING" | "APPROVED" | "CANCELED" }
   );
 };
 
-const DeliveryBadge = ({ delivery }: { delivery: "No DN" | "Has DN" | "Delivered" }) => {
+const DeliveryBadge = ({ delivery }: { delivery: "No Delivery Note" | "Has Delivery Note" | "Delivered" }) => {
   if (delivery === "Delivered") {
     return (
       <Badge className="bg-green-100 text-green-700 hover:bg-green-100 text-[10px] font-bold px-1.5 py-0 rounded">
@@ -134,16 +166,16 @@ const DeliveryBadge = ({ delivery }: { delivery: "No DN" | "Has DN" | "Delivered
       </Badge>
     );
   }
-  if (delivery === "Has DN") {
+  if (delivery === "Has Delivery Note") {
     return (
       <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-[10px] font-bold px-1.5 py-0 rounded">
-        Has DN
+        Has Delivery Note
       </Badge>
     );
   }
   return (
     <Badge className="bg-gray-100 text-gray-500 hover:bg-gray-100 text-[10px] font-bold px-1.5 py-0 rounded">
-      No DN
+      No Delivery Note
     </Badge>
   );
 };
@@ -151,7 +183,7 @@ const DeliveryBadge = ({ delivery }: { delivery: "No DN" | "Has DN" | "Delivered
 type TabType = "invoices" | "failed" | "voided";
 
 export function InvoicesPage({ onInvoiceClick, onSOClick, onCreateInvoice }: InvoicesPageProps) {
-  const { invoices } = useAppData();
+  const { invoices, dnList, transferList } = useAppData();
   const [activeTab, setActiveTab] = useState<TabType>("invoices");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState<{ id: string; field: string; value: string }[]>([]);
@@ -496,8 +528,8 @@ export function InvoicesPage({ onInvoiceClick, onSOClick, onCreateInvoice }: Inv
                                 className="h-8 border border-[#e8e8ec] text-[13px] rounded-md px-2 w-[160px] outline-none shadow-[0_1px_2px_rgba(0,0,0,0.05)] cursor-pointer"
                               >
                                 <option value="">Select an option</option>
-                                <option value="No DN">No DN</option>
-                                <option value="Has DN">Has DN</option>
+                                <option value="No Delivery Note">No Delivery Note</option>
+                                <option value="Has Delivery Note">Has Delivery Note</option>
                                 <option value="Delivered">Delivered</option>
                               </select>
                             ) : (
@@ -671,12 +703,15 @@ export function InvoicesPage({ onInvoiceClick, onSOClick, onCreateInvoice }: Inv
                         {sortField === "Payment Type" ? (sortDir === "asc" ? <ChevronUp className="w-3 h-3 text-[#4f6ef7]"/> : <ChevronDown className="w-3 h-3 text-[#4f6ef7]"/>) : <Menu className="w-3 h-3 text-[#d0d0dc]"/>}
                       </div>
                     </TableHead>
-                    <TableHead 
+                    <TableHead className="text-[11px] font-medium text-[#8b8b9e] tracking-wider uppercase text-center w-10">PAYMENT</TableHead>
+                    <TableHead className="text-[11px] font-medium text-[#8b8b9e] tracking-wider uppercase text-center w-10">NOTED</TableHead>
+                    <TableHead className="text-[11px] font-medium text-[#8b8b9e] tracking-wider uppercase text-center w-10">DELIVERED</TableHead>
+                    <TableHead
                       onClick={() => handleSort("Status")}
                       className="text-[11px] font-medium text-[#8b8b9e] tracking-wider uppercase cursor-pointer hover:bg-gray-100 transition-colors"
                     >
                       <div className="flex items-center gap-2">
-                        <Menu className="w-3 h-3 text-[#d0d0dc]" /> STATUS 
+                        <Menu className="w-3 h-3 text-[#d0d0dc]" /> STATUS
                         {sortField === "Status" ? (sortDir === "asc" ? <ChevronUp className="w-3 h-3 text-[#4f6ef7]"/> : <ChevronDown className="w-3 h-3 text-[#4f6ef7]"/>) : <Menu className="w-3 h-3 text-[#d0d0dc]"/>}
                       </div>
                     </TableHead>
@@ -736,6 +771,29 @@ export function InvoicesPage({ onInvoiceClick, onSOClick, onCreateInvoice }: Inv
                             {inv.paymentType}
                           </span>
                         </TableCell>
+                        {(() => {
+                          const total = parseAmt(inv.total);
+                          const balance = parseAmt(inv.balance);
+                          const payState: DotState = balance <= 0 ? "full" : balance < total ? "partial" : "empty";
+
+                          const activeDns = dnList.filter(d =>
+                            (d.sourceInvoiceId === inv.id || d.sourceSOId === inv.sourceSOId) &&
+                            d.status !== "CANCELED"
+                          );
+                          const dnsWithTransfer = activeDns.filter(d => transferList.some(t => t.sourceDNId === d.id));
+                          const notedState: DotState = dnsWithTransfer.length === 0 ? "empty" : dnsWithTransfer.reduce((s, d) => s + d.items, 0) >= inv.items ? "full" : "partial";
+
+                          const approvedDns = activeDns.filter(d => d.status === "APPROVED");
+                          const delivState: DotState = approvedDns.length === 0 ? "empty" : approvedDns.reduce((s, d) => s + d.items, 0) >= inv.items ? "full" : "partial";
+
+                          return (
+                            <>
+                              <TableCell className="text-center"><TrackDot state={payState} color="#4f6ef7" label={payState === "full" ? "Paid" : payState === "partial" ? "Partially paid" : "Unpaid"} /></TableCell>
+                              <TableCell className="text-center"><TrackDot state={notedState} color="#4f6ef7" label={notedState === "full" ? "All items noted" : notedState === "partial" ? "Partially noted" : "No delivery note"} /></TableCell>
+                              <TableCell className="text-center"><TrackDot state={delivState} color="#4f6ef7" label={delivState === "full" ? "Fully delivered" : delivState === "partial" ? "Partially delivered" : "Not delivered"} /></TableCell>
+                            </>
+                          );
+                        })()}
                         <TableCell>
                           <StatusBadge status={inv.status} />
                         </TableCell>

@@ -268,10 +268,10 @@ export function DeliveryNotesPage({ onDNClick, onSOClick, onNavigateToTransferDe
           <Menu className="w-5 h-5 text-[#4a4a5a] cursor-pointer" />
           <div className="flex items-center bg-[#f7f7f9] p-1 rounded-full text-[13px] font-medium text-[#4a4a5a]">
             <button className="px-4 py-1.5 rounded-full bg-white shadow-sm text-[#1a1a2e]">
-              Delivery notes summary
+              Delivery Notes Summary
             </button>
             <button className="px-4 py-1.5 rounded-full hover:bg-gray-100 transition-colors text-[#8b8b9e]">
-              Delivery notes report
+              Delivery Notes Report
             </button>
           </div>
         </div>
@@ -354,7 +354,7 @@ export function DeliveryNotesPage({ onDNClick, onSOClick, onNavigateToTransferDe
                               >
                                 <option value="Status">Status</option>
                                 <option value="Rep">Rep</option>
-                                <option value="DN Number">DN Number</option>
+                                <option value="DN Number">Delivery Note Number</option>
                                 <option value="Source SO">Source SO</option>
                                 <option value="Client Name">Client Name</option>
                                 <option value="Created By">Created By</option>
@@ -512,7 +512,7 @@ export function DeliveryNotesPage({ onDNClick, onSOClick, onNavigateToTransferDe
                     className="text-[11px] font-medium text-[#8b8b9e] tracking-wider uppercase cursor-pointer hover:bg-gray-100 transition-colors"
                   >
                     <div className="flex items-center gap-2">
-                      <Menu className="w-3 h-3" /> DN NUMBER{" "}
+                      <Menu className="w-3 h-3" /> DELIVERY NOTE NUMBER{" "}
                       {sortField === "DN Number" ? (sortDir === "asc" ? <ChevronUp className="w-3 h-3 text-[#4f6ef7]"/> : <ChevronDown className="w-3 h-3 text-[#4f6ef7]"/>) : <Menu className="w-3 h-3 text-[#d0d0dc]"/>}
                     </div>
                   </TableHead>
@@ -530,7 +530,7 @@ export function DeliveryNotesPage({ onDNClick, onSOClick, onNavigateToTransferDe
                     className="text-[11px] font-medium text-[#8b8b9e] tracking-wider uppercase cursor-pointer hover:bg-gray-100 transition-colors"
                   >
                     <div className="flex items-center gap-2">
-                      <Menu className="w-3 h-3 text-[#d0d0dc]" /> SOURCE SO{" "}
+                      <Menu className="w-3 h-3 text-[#d0d0dc]" /> SOURCE{" "}
                       {sortField === "Source SO" ? (sortDir === "asc" ? <ChevronUp className="w-3 h-3 text-[#4f6ef7]"/> : <ChevronDown className="w-3 h-3 text-[#4f6ef7]"/>) : <Menu className="w-3 h-3 text-[#d0d0dc]"/>}
                     </div>
                   </TableHead>

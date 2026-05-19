@@ -169,7 +169,7 @@ export function CreateDNFromReservationModal({
                       Remaining
                     </th>
                     <th className="text-right px-4 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">
-                      This DN
+                      This Delivery Note
                     </th>
                   </tr>
                 </thead>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { getProductFamily, getBaseUnit, toBase } from "./measurementUnits";
 import {
   X,
@@ -43,6 +43,7 @@ interface Item {
   id: string;
   name: string;
   sku: string;
+  unit: string;
   totalQty: number;
   deliveredQty: number;
   notedQty: number;
@@ -72,6 +73,8 @@ export function CreateReservationModal({
   hideLinkTabs = false,
 }: CreateReservationModalProps) {
   const defaultUnit = (itemId: string) => {
+    const item = orderItems.find(i => i.id === itemId);
+    if (item?.unit) return item.unit;
     const family = getProductFamily(itemId);
     return family ? getBaseUnit(family).name : "Piece";
   };
@@ -107,6 +110,12 @@ export function CreateReservationModal({
     setSharedWarehouse(wh);
     setLines(prev => prev.map(l => ({ ...l, warehouse: wh })));
   };
+
+  useEffect(() => {
+    if (isOpen) {
+      resetLines();
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -238,7 +247,7 @@ export function CreateReservationModal({
               <Bookmark className="w-5 h-5 text-indigo-600" />
             </div>
             <div>
-              <h2 className="text-[18px] font-bold text-gray-900 tracking-tight">Create Reservations</h2>
+              <h2 className="text-[18px] font-bold text-gray-900 tracking-tight">Create Free Reservation</h2>
               <p className="text-[12px] text-gray-500 font-medium italic">Assign items to specific warehouses manually</p>
             </div>
           </div>
@@ -252,46 +261,6 @@ export function CreateReservationModal({
 
         {/* Content */}
         <div className="flex-1 overflow-auto p-6 space-y-6">
-          {/* Reservation Source Selection */}
-          {!hideLinkTabs && (
-            <div className="bg-gray-50 border border-gray-100 rounded-lg p-5">
-              <h3 className="text-[12px] font-bold text-gray-700 uppercase tracking-widest mb-4">Link to Source</h3>
-              <div className="flex flex-col gap-4">
-                <div className="flex items-center gap-3">
-                  {(["Free", "SO", "Invoice"] as const).map((type) => (
-                    <button
-                      key={type}
-                      onClick={() => setLinkType(type)}
-                      className={`px-4 py-2 rounded-lg text-[13px] font-medium transition-all border ${
-                        linkType === type
-                          ? "bg-[#1a1a2e] text-white border-[#1a1a2e] shadow-md"
-                          : "bg-white text-gray-600 border-gray-200 hover:border-indigo-300"
-                      }`}
-                    >
-                      {type === "Free" ? "Free / Manual" : type === "SO" ? "Sales Order" : "Invoice"}
-                    </button>
-                  ))}
-                </div>
-
-                {linkType !== "Free" && (
-                  <div className="flex flex-col gap-1.5 max-w-sm animate-in slide-in-from-left-2 duration-200">
-                    <label className="text-[11px] font-bold text-gray-500 uppercase">Target {linkType} Number</label>
-                    <div className="relative">
-                      <Input
-                        placeholder={`Enter ${linkType} number...`}
-                        value={sourceNumber}
-                        onChange={(e) => setSourceNumber(e.target.value)}
-                        className="bg-white"
-                      />
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                        <span className="text-[10px] text-indigo-500 font-bold">REQUIRED</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
 
           <div className="bg-amber-50 border border-amber-100 rounded-lg p-4 flex items-start gap-3 mb-2">
             <Info className="w-4 h-4 text-amber-600 mt-0.5" />
@@ -308,7 +277,7 @@ export function CreateReservationModal({
           {!allowMultiWarehouseReservation && (
             <div className="flex flex-col gap-1.5 max-w-sm">
               <label className="text-[10px] uppercase font-bold text-gray-400 tracking-widest pl-1">Warehouse (applies to all lines)</label>
-              <Select value={sharedWarehouse} onValueChange={handleSharedWarehouseChange}>
+              <Select value={sharedWarehouse || undefined} onValueChange={handleSharedWarehouseChange}>
                 <SelectTrigger className="h-10 bg-white border-gray-200">
                   <SelectValue placeholder="Select warehouse" />
                 </SelectTrigger>
@@ -336,7 +305,7 @@ export function CreateReservationModal({
                     </div>
                     <div className="flex-1 space-y-1.5">
                       <label className="text-[10px] uppercase font-bold text-gray-400 tracking-widest pl-1">Item Selection</label>
-                      <Select value={line.itemId} onValueChange={(val) => updateLine(line.id, { itemId: val })}>
+                      <Select value={line.itemId || undefined} onValueChange={(val) => updateLine(line.id, { itemId: val })}>
                         <SelectTrigger className="h-10 bg-white border-gray-200">
                           <SelectValue placeholder="Select item" />
                         </SelectTrigger>
@@ -351,7 +320,7 @@ export function CreateReservationModal({
                     {allowMultiWarehouseReservation && (
                     <div className="flex-1 space-y-1.5">
                       <label className="text-[10px] uppercase font-bold text-gray-400 tracking-widest pl-1">Target Warehouse</label>
-                      <Select value={line.warehouse} onValueChange={(val) => updateLine(line.id, { warehouse: val })}>
+                      <Select value={line.warehouse || undefined} onValueChange={(val) => updateLine(line.id, { warehouse: val })}>
                         <SelectTrigger className="h-10 bg-white border-gray-200">
                           <SelectValue placeholder="Select warehouse" />
                         </SelectTrigger>
@@ -395,19 +364,25 @@ export function CreateReservationModal({
                     </div>
                     )}
 
-                    <div className="w-24 space-y-1.5">
+                    <div className="w-36 space-y-1.5">
                       <label className="text-[10px] uppercase font-bold text-gray-400 tracking-widest pl-1">Unit</label>
                       {(() => {
                         const family = getProductFamily(line.itemId);
                         const units = family ? family.units : [];
+                        const baseUnit = family ? getBaseUnit(family) : null;
                         return units.length > 1 ? (
-                          <Select value={line.unit} onValueChange={(val) => updateLine(line.id, { unit: val })}>
+                          <Select value={line.unit || undefined} onValueChange={(val) => updateLine(line.id, { unit: val })}>
                             <SelectTrigger className="h-10 bg-white border-gray-200">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
                               {units.map(u => (
-                                <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>
+                                <SelectItem key={u.id} value={u.name}>
+                                  <span>{u.name}</span>
+                                  {baseUnit && u.factor !== 1 && (
+                                    <span className="ml-1.5 text-[10px] text-gray-400">= {u.factor} {baseUnit.name}</span>
+                                  )}
+                                </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>

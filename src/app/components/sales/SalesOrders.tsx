@@ -66,7 +66,6 @@ function TrackDot({ state, color, label }: { state: DotState; color: string; lab
   );
 }
 
-function parseAmt(s: string) { return parseFloat(s.replace(/[^0-9.]/g, "")) || 0; }
 
 export function SalesOrders({ onOrderClick, onCreateSO }: { onOrderClick?: (id: string) => void; onCreateSO?: () => void }) {
   const { salesOrders, invoices, dnList, transferList } = useAppData();
@@ -189,11 +188,8 @@ export function SalesOrders({ onOrderClick, onCreateSO }: { onOrderClick?: (id: 
     if (status === "pending") {
       return <span className="inline-flex items-center px-2 py-0.5 rounded-[4px] text-[11px] font-medium bg-[#fcfbd7] text-[#e0a800]">pending</span>;
     }
-    if (status === "approved") {
+    if (status === "approved" || status === "invoiced") {
       return <span className="inline-flex items-center px-2 py-0.5 rounded-[4px] text-[11px] font-medium bg-[#ecfdf3] text-[#12b76a]">approved</span>;
-    }
-    if (status === "invoiced") {
-      return <span className="inline-flex items-center px-2 py-0.5 rounded-[4px] text-[11px] font-medium bg-[#eff6ff] text-[#4f6ef7]">invoiced</span>;
     }
     if (status === "rejected") {
       return <span className="inline-flex items-center px-2 py-0.5 rounded-[4px] text-[11px] font-medium bg-[#fff1f2] text-[#e41e3f]">rejected</span>;
@@ -423,7 +419,6 @@ export function SalesOrders({ onOrderClick, onCreateSO }: { onOrderClick?: (id: 
                     </div>
                   </TableHead>
                   <TableHead className="text-center text-[11px] font-medium text-[#8b8b9e] tracking-wider uppercase w-[72px]">INVOICED</TableHead>
-                  <TableHead className="text-center text-[11px] font-medium text-[#8b8b9e] tracking-wider uppercase w-[72px]">PAYMENT</TableHead>
                   <TableHead className="text-center text-[11px] font-medium text-[#8b8b9e] tracking-wider uppercase w-[72px]">NOTED</TableHead>
                   <TableHead className="text-center text-[11px] font-medium text-[#8b8b9e] tracking-wider uppercase w-[72px]">DELIVERED</TableHead>
                   <TableHead
@@ -484,11 +479,6 @@ export function SalesOrders({ onOrderClick, onCreateSO }: { onOrderClick?: (id: 
                       // INVOICED — binary: non-canceled invoice exists?
                       const inv = invoices.find(i => (i.sourceSOId === order.id || i.id === order.linkedInvoiceId) && i.status !== "CANCELED");
 
-                      // PAYMENT — empty/partial/full based on invoice balance
-                      const total = inv ? parseAmt(inv.total) : 0;
-                      const balance = inv ? parseAmt(inv.balance) : 0;
-                      const payState: DotState = !inv ? "empty" : balance <= 0 ? "full" : balance < total ? "partial" : "empty";
-
                       // NOTED — DN exists AND has a transfer; partial if not all SO items covered
                       const activeDns = dnList.filter(d => d.sourceSOId === order.id && d.status !== "CANCELED");
                       const dnsWithTransfer = activeDns.filter(d => transferList.some(t => t.sourceDNId === d.id));
@@ -503,8 +493,7 @@ export function SalesOrders({ onOrderClick, onCreateSO }: { onOrderClick?: (id: 
                       return (
                         <>
                           <TableCell className="text-center"><TrackDot state={inv ? "full" : "empty"} color="#4f6ef7" label={inv ? "Invoiced" : "Not invoiced"} /></TableCell>
-                          <TableCell className="text-center"><TrackDot state={payState} color="#4f6ef7" label={payState === "full" ? "Paid" : payState === "partial" ? "Partially paid" : "Unpaid"} /></TableCell>
-                          <TableCell className="text-center"><TrackDot state={notedState} color="#4f6ef7" label={notedState === "full" ? "All items noted & transferred" : notedState === "partial" ? "Partially noted" : "No DN / no transfer"} /></TableCell>
+                          <TableCell className="text-center"><TrackDot state={notedState} color="#4f6ef7" label={notedState === "full" ? "All items noted & transferred" : notedState === "partial" ? "Partially noted" : "No delivery note / no transfer"} /></TableCell>
                           <TableCell className="text-center"><TrackDot state={delivState} color="#4f6ef7" label={delivState === "full" ? "Fully delivered" : delivState === "partial" ? "Partially delivered" : "Not delivered"} /></TableCell>
                         </>
                       );
