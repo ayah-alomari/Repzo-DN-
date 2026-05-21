@@ -118,12 +118,12 @@ export function ConvertInvoiceModal({
   const [issueDate, setIssueDate] = useState("04/22/2026");
   const [dueDate, setDueDate] = useState("05/22/2026");
   const [paymentStatus, setPaymentStatus] = useState("UNPAID");
-  const { allowMultiWarehouseReservation, reservations: allReservations, enableTransactionalInvoice, transactionalMode, defaultMarkAsDelivered: ctxDefaultMarkAsDelivered } = useAppData();
+  const { allowMultiWarehouseReservation, reservations: allReservations, enableTransactionalInvoice, transactionalMode } = useAppData();
 
-  const defaultMarkAsDelivered = enableTransactionalInvoice && (transactionalMode === "strict" || ctxDefaultMarkAsDelivered);
+  const defaultMarkAsDelivered = !enableTransactionalInvoice || transactionalMode === "checked";
   const [markAsDelivered, setMarkAsDelivered] = useState(defaultMarkAsDelivered);
 
-  const isCheckboxDisabled = !enableTransactionalInvoice || (enableTransactionalInvoice && transactionalMode === "strict");
+  const isCheckboxDisabled = !enableTransactionalInvoice || transactionalMode === "strict";
 
   // Step 2 state
   const [allocations, setAllocations] = useState<Record<string, Allocation[]>>({});
@@ -179,11 +179,11 @@ export function ConvertInvoiceModal({
       setRepLocked(!!soCreatedBy);
       setIssueDate("04/22/2026");
       setDueDate("05/22/2026");
-      setMarkAsDelivered(enableTransactionalInvoice && (transactionalMode === "strict" || ctxDefaultMarkAsDelivered));
+      setMarkAsDelivered(!enableTransactionalInvoice || transactionalMode === "checked");
       setGlobalWarehouseStep2("");
       initAllocations();
     }
-  }, [isOpen, soCreatedBy, enableTransactionalInvoice, transactionalMode, ctxDefaultMarkAsDelivered]);
+  }, [isOpen, soCreatedBy, enableTransactionalInvoice, transactionalMode]);
 
   // ── Validation ───────────────────────────────────────────────────────────────
   const step1Valid = mode === "finance"

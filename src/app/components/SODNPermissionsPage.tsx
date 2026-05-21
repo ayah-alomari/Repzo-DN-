@@ -5,6 +5,7 @@ import { useAppData } from "../context/AppDataContext";
 interface Props {
   initialTab: string;
   onBack: () => void;
+  onNavigate?: (route: string) => void;
 }
 
 const TABS = [
@@ -135,96 +136,151 @@ function WarningModal({
 }
 
 // ── Two-step disable reservation modal ───────────────────────────────────────
+type DisableAction = "keep" | "remove";
+
+const DISABLE_PHRASE: Record<DisableAction, string> = {
+  keep:   "DISABLE RESERVATION MODEL",
+  remove: "REMOVE ALL RESERVATIONS",
+};
+
 function DisableReservationModal({
   step,
+  action,
   confirmText,
   onConfirmTextChange,
-  onNext,
+  onKeep,
+  onRemove,
   onConfirm,
+  onBack,
+  onViewReservations,
   onCancel,
+  activeReservations,
 }: {
   step: 1 | 2;
+  action: DisableAction | null;
   confirmText: string;
   onConfirmTextChange: (v: string) => void;
-  onNext: () => void;
+  onKeep: () => void;
+  onRemove: () => void;
   onConfirm: () => void;
   onCancel: () => void;
+  onBack: () => void;
+  onViewReservations: () => void;
+  activeReservations: import("../context/AppDataContext").Reservation[];
 }) {
-  const isValid = confirmText === "Confirm Disable Reservation";
+  const isValid = action ? confirmText === DISABLE_PHRASE[action] : false;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-[1px]">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
         {step === 1 ? (
           <>
-            <div className="px-6 pt-6 pb-5">
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center shrink-0">
-                  <AlertTriangle className="w-5 h-5 text-red-500" />
+            <div className="px-6 pt-6 pb-4">
+              <div className="flex items-start gap-4 mb-4">
+                <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5 text-amber-500" />
                 </div>
                 <div>
                   <h3 className="text-[15px] font-bold text-gray-900 leading-tight">Disable Reservation Model?</h3>
-                  <p className="text-[13px] text-gray-500 mt-2 leading-relaxed">
-                    This will deactivate all reservation features across the system.{" "}
-                    <span className="font-semibold text-red-600 bg-red-50 px-1 py-0.5 rounded">
-                      Existing reservations will be removed immediately.
-                    </span>{" "}
-                    This action cannot be undone.
+                  <p className="text-[13px] text-gray-500 mt-1.5 leading-relaxed">
+                    Disabling the model while items are reserved may cause reservations to go negative, or leave invoiced items reserved without being delivered.
                   </p>
                 </div>
               </div>
+
+              {/* Reservations summary */}
+              {activeReservations.length > 0 && (() => {
+                return (
+                  <div className="mb-4 flex items-center justify-between gap-4 px-4 py-3 rounded-[10px] bg-amber-50 border border-amber-200">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-[20px] font-bold text-amber-700 leading-none">{activeReservations.length}</span>
+                      <span className="text-[13px] text-amber-600 font-medium">active reservation{activeReservations.length !== 1 ? "s" : ""}</span>
+                    </div>
+                    <button
+                      onClick={onViewReservations}
+                      className="text-[12px] text-indigo-600 hover:underline font-medium shrink-0 flex items-center gap-0.5"
+                    >
+                      Review or manage manually
+                      <ArrowUpRight className="w-3 h-3" />
+                    </button>
+                  </div>
+                );
+              })()}
+
+              {/* Options */}
+              <div className="flex flex-col gap-2.5">
+                <button
+                  onClick={onKeep}
+                  className="w-full text-left px-4 py-3.5 rounded-[10px] border border-amber-200 bg-amber-50/40 hover:border-amber-400 hover:bg-amber-50 transition-all group"
+                >
+                  <p className="text-[13px] font-semibold text-amber-800">Disable only</p>
+                  <p className="text-[12px] text-amber-600/80 mt-0.5">Existing reservations are kept, but may cause negative stock or undelivered invoiced items.</p>
+                </button>
+                <button
+                  onClick={onRemove}
+                  className="w-full text-left px-4 py-3.5 rounded-[10px] border border-red-300 bg-red-50/40 hover:border-red-500 hover:bg-red-50 transition-all group"
+                >
+                  <p className="text-[13px] font-semibold text-red-700">Disable and remove all reservations</p>
+                  <p className="text-[12px] mt-0.5 text-red-500/80">
+                    All reservations will be permanently deleted. This cannot be undone.
+                  </p>
+                </button>
+              </div>
             </div>
-            <div className="flex justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-100">
-              <button
-                onClick={onCancel}
-                className="px-4 py-2 text-[13px] font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-white transition-colors cursor-pointer"
-              >
+            <div className="flex justify-end px-6 py-4 bg-gray-50 border-t border-gray-100">
+              <button onClick={onCancel} className="px-4 py-2 text-[13px] font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-white transition-colors cursor-pointer">
                 Cancel
-              </button>
-              <button
-                onClick={onNext}
-                className="px-4 py-2 text-[13px] font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors cursor-pointer"
-              >
-                Continue
               </button>
             </div>
           </>
         ) : (
           <>
-            <div className="px-6 pt-6 pb-5">
+            <div className="px-6 pt-5 pb-5">
+              <button
+                onClick={onBack}
+                className="flex items-center gap-1 text-[12px] text-gray-400 hover:text-gray-700 transition-colors mb-4 cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                Back
+              </button>
               <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center shrink-0">
-                  <AlertTriangle className="w-5 h-5 text-red-500" />
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${action === "remove" ? "bg-red-50" : "bg-amber-50"}`}>
+                  <AlertTriangle className={`w-5 h-5 ${action === "remove" ? "text-red-500" : "text-amber-500"}`} />
                 </div>
                 <div className="w-full">
-                  <h3 className="text-[15px] font-bold text-gray-900 leading-tight">Confirm disabling the reservation model</h3>
+                  <h3 className="text-[15px] font-bold text-gray-900 leading-tight">
+                    {action === "remove" ? "Confirm removing all reservations" : "Confirm disabling the reservation model"}
+                  </h3>
                   <p className="text-[13px] text-gray-500 mt-2 leading-relaxed">
-                    Type <span className="font-semibold text-gray-800">Confirm Disable Reservation</span> to proceed.
+                    Type <span className="font-semibold text-gray-800">{action === "remove" ? "Remove all reservations" : "Disable reservation model"}</span> in <span className="font-semibold text-gray-800">CAPITAL LETTERS</span> to confirm.
                   </p>
                   <input
                     autoFocus
                     type="text"
                     value={confirmText}
                     onChange={e => onConfirmTextChange(e.target.value)}
-                    placeholder="Confirm Disable Reservation"
-                    className="mt-3 w-full px-3 py-2 text-[13px] border border-gray-300 rounded-lg outline-none focus:border-red-400 focus:ring-2 focus:ring-red-50 transition-all placeholder:text-gray-300"
+                    placeholder="Type here..."
+                    className={`mt-3 w-full px-3 py-2 text-[13px] border rounded-lg outline-none transition-all placeholder:text-gray-300 ${
+                      action === "remove"
+                        ? "border-gray-300 focus:border-red-400 focus:ring-2 focus:ring-red-50"
+                        : "border-gray-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-50"
+                    }`}
                   />
                 </div>
               </div>
             </div>
             <div className="flex justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-100">
-              <button
-                onClick={onCancel}
-                className="px-4 py-2 text-[13px] font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-white transition-colors cursor-pointer"
-              >
+              <button onClick={onCancel} className="px-4 py-2 text-[13px] font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-white transition-colors cursor-pointer">
                 Cancel
               </button>
               <button
                 onClick={onConfirm}
                 disabled={!isValid}
-                className="px-4 py-2 text-[13px] font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                className={`px-4 py-2 text-[13px] font-semibold text-white rounded-lg transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+                  action === "remove" ? "bg-red-600 hover:bg-red-700" : "bg-[#1a1a2e] hover:bg-[#111827]"
+                }`}
               >
-                Disable
+                {action === "remove" ? "Disable and Remove" : "Disable"}
               </button>
             </div>
           </>
@@ -311,21 +367,18 @@ function SalesOrdersTab() {
       hasChanges={JSON.stringify(draft) !== JSON.stringify(saved)}
       onReset={handleReset}
       onSubmit={handleSubmit}
-      noCard
     >
-      <div className="bg-white border border-gray-200 rounded-[10px] px-6 divide-y divide-gray-100">
-        <ToggleRow
-          label="Allow Sales Order approval without stock"
-          description="When enabled, Sales Orders can be approved even if the selected warehouse has insufficient stock for some items. When disabled, the approval modal requires full stock coverage before confirming."
-          checked={draft.approvalWithoutStock}
-          onChange={v => setDraft(d => ({ ...d, approvalWithoutStock: v }))}
-        />
-      </div>
+      <ToggleRow
+        label="Allow Sales Order approval without stock"
+        description="When enabled, Sales Orders can be approved even if the selected warehouse has insufficient stock for some items. When disabled, the approval modal requires full stock coverage before confirming."
+        checked={draft.approvalWithoutStock}
+        onChange={v => setDraft(d => ({ ...d, approvalWithoutStock: v }))}
+      />
     </TabShell>
   );
 }
 
-function ReservationsTab({ onNavigateTo }: { onNavigateTo: (tab: string) => void }) {
+function ReservationsTab({ onNavigateTo, onNavigateToRoute }: { onNavigateTo: (tab: string) => void; onNavigateToRoute?: (route: string) => void }) {
   const {
     enableReservationModel, setEnableReservationModel,
     reservationMode, setReservationMode,
@@ -333,6 +386,8 @@ function ReservationsTab({ onNavigateTo }: { onNavigateTo: (tab: string) => void
     allowNegativeReservation, setAllowNegativeReservation,
     preventInvoiceReservations, setPreventInvoiceReservations,
     allowSOApprovalWithoutStock,
+    reservations,
+    setReservations,
   } = useAppData();
 
   const [saved, setSaved] = useState({
@@ -354,6 +409,7 @@ function ReservationsTab({ onNavigateTo }: { onNavigateTo: (tab: string) => void
 
   const [pendingChange, setPendingChange] = useState<PendingChange | null>(null);
   const [disableModelStep, setDisableModelStep] = useState<1 | 2 | null>(null);
+  const [disableModelAction, setDisableModelAction] = useState<DisableAction | null>(null);
   const [disableConfirmText, setDisableConfirmText] = useState("");
   const [showNegBlockedModal, setShowNegBlockedModal] = useState(false);
 
@@ -393,14 +449,27 @@ function ReservationsTab({ onNavigateTo }: { onNavigateTo: (tab: string) => void
     setPendingChange(null);
   };
 
+  const handleDisableModelKeep = () => {
+    setDisableModelAction("keep");
+    setDisableModelStep(2);
+  };
+
+  const handleDisableModelRemove = () => {
+    setDisableModelAction("remove");
+    setDisableModelStep(2);
+  };
+
   const handleDisableModelConfirm = () => {
     setDraft(d => ({ ...d, enableReservationModel: false }));
+    if (disableModelAction === "remove") setReservations([]);
     setDisableModelStep(null);
+    setDisableModelAction(null);
     setDisableConfirmText("");
   };
 
   const handleDisableModelCancel = () => {
     setDisableModelStep(null);
+    setDisableModelAction(null);
     setDisableConfirmText("");
   };
 
@@ -418,11 +487,16 @@ function ReservationsTab({ onNavigateTo }: { onNavigateTo: (tab: string) => void
       {disableModelStep && (
         <DisableReservationModal
           step={disableModelStep}
+          action={disableModelAction}
           confirmText={disableConfirmText}
           onConfirmTextChange={setDisableConfirmText}
-          onNext={() => setDisableModelStep(2)}
+          onKeep={handleDisableModelKeep}
+          onRemove={handleDisableModelRemove}
           onConfirm={handleDisableModelConfirm}
           onCancel={handleDisableModelCancel}
+          onBack={() => { setDisableModelStep(1); setDisableModelAction(null); setDisableConfirmText(""); }}
+          onViewReservations={() => { handleDisableModelCancel(); onNavigateToRoute?.("reservations-v2"); }}
+          activeReservations={reservations.filter(r => r.status === "ACTIVE")}
         />
       )}
       {showNegBlockedModal && (
@@ -488,7 +562,7 @@ function ReservationsTab({ onNavigateTo }: { onNavigateTo: (tab: string) => void
                   <span className="text-[11px] text-gray-400 leading-snug pl-6">
                     {mode === "flexible"
                       ? "Reservations are optional — users can skip when needed."
-                      : "Reservations are required before approving or invoicing."
+                      : "Reservations are required after approving the order or invoicing."
                     }
                   </span>
                 </button>
@@ -622,31 +696,20 @@ function InvoicesInventoryTab() {
     setEnableTransactionalInvoice,
     transactionalMode,
     setTransactionalMode,
-    defaultMarkAsDelivered,
-    setDefaultMarkAsDelivered,
   } = useAppData();
 
-  const [saved, setSaved] = useState({
-    enableTransactionalInvoice,
-    transactionalMode,
-    defaultMarkAsDelivered,
-  });
-  const [draft, setDraft] = useState({
-    enableTransactionalInvoice,
-    transactionalMode,
-    defaultMarkAsDelivered,
-  });
+  const [saved, setSaved] = useState({ enableTransactionalInvoice, transactionalMode });
+  const [draft, setDraft] = useState({ enableTransactionalInvoice, transactionalMode });
 
   React.useEffect(() => {
-    setSaved({ enableTransactionalInvoice, transactionalMode, defaultMarkAsDelivered });
-    setDraft({ enableTransactionalInvoice, transactionalMode, defaultMarkAsDelivered });
-  }, [enableTransactionalInvoice, transactionalMode, defaultMarkAsDelivered]);
+    setSaved({ enableTransactionalInvoice, transactionalMode });
+    setDraft({ enableTransactionalInvoice, transactionalMode });
+  }, [enableTransactionalInvoice, transactionalMode]);
 
   const handleSubmit = () => {
     setSaved(draft);
     setEnableTransactionalInvoice(draft.enableTransactionalInvoice);
     setTransactionalMode(draft.transactionalMode);
-    setDefaultMarkAsDelivered(draft.defaultMarkAsDelivered);
   };
   const handleReset = () => setDraft(saved);
 
@@ -659,17 +722,21 @@ function InvoicesInventoryTab() {
       onSubmit={handleSubmit}
       noCard
     >
-      {/* Card — Enable Transactional Invoice */}
+      {/* Card — Enable Non-Transactional Invoice */}
       <div className={`bg-white border border-gray-200 rounded-[10px] px-6 transition-colors ${draft.enableTransactionalInvoice ? "bg-indigo-50/50" : ""}`}>
         {/* Enable toggle row */}
         <div className="pt-5 pb-3 flex items-center gap-4">
           <Toggle checked={draft.enableTransactionalInvoice} onChange={v => setDraft(d => ({ ...d, enableTransactionalInvoice: v }))} />
-          <span className="text-[14px] font-bold text-gray-900">Enable transactional invoice</span>
+          <span className="text-[14px] font-bold text-gray-900">Enable non-transactional invoice</span>
         </div>
 
-        {/* Mode radio options */}
+        {/* 3-option radio — 'Mark as Delivered' default */}
         <div className={`pb-4 flex gap-3 transition-opacity duration-200 ${!draft.enableTransactionalInvoice ? "opacity-40 pointer-events-none select-none" : ""}`}>
-          {(["optional", "strict"] as const).map(mode => {
+          {([
+            { mode: "unchecked" as const, icon: <Square className="w-3.5 h-3.5" />, label: "Unchecked by default", desc: "Checkbox opens unchecked. Users decide before confirming." },
+            { mode: "checked"   as const, icon: <CheckSquare className="w-3.5 h-3.5" />, label: "Checked by default",   desc: "Checkbox opens pre-checked. Users can uncheck before confirming." },
+            { mode: "strict"    as const, icon: <span className="relative inline-flex shrink-0"><Square className="w-3.5 h-3.5" /><Lock className="w-2 h-2 absolute -bottom-0.5 -right-1" /></span>, label: "Strict — always unchecked", desc: "Invoice is always non-transactional. The checkbox is locked and cannot be changed." },
+          ]).map(({ mode, icon, label, desc }) => {
             const selected = draft.transactionalMode === mode;
             return (
               <button
@@ -681,75 +748,27 @@ function InvoicesInventoryTab() {
                   <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center transition-colors ${selected ? "border-indigo-500" : "border-gray-300"}`}>
                     {selected && <div className="w-2 h-2 rounded-full bg-indigo-500" />}
                   </div>
-                  {mode === "optional"
-                    ? <Unlock className={`w-3.5 h-3.5 ${selected ? "text-indigo-500" : "text-gray-400"}`} />
-                    : <Lock className={`w-3.5 h-3.5 ${selected ? "text-indigo-500" : "text-gray-400"}`} />
-                  }
-                  <span className={`text-[13px] font-semibold ${selected ? "text-indigo-700" : "text-gray-600"}`}>
-                    {mode === "optional" ? "Optional" : "Strict"}
-                  </span>
+                  <span className={`w-3.5 h-3.5 ${selected ? "text-indigo-500" : "text-gray-400"}`}>{icon}</span>
+                  <span className={`text-[13px] font-semibold ${selected ? "text-indigo-700" : "text-gray-600"}`}>{label}</span>
                 </div>
-                <span className="text-[11px] text-gray-400 leading-snug pl-6">
-                  {mode === "optional"
-                    ? "Users choose whether to mark the invoice as delivered."
-                    : "All invoices are automatically marked as delivered."
-                  }
-                </span>
+                <span className="text-[11px] text-gray-400 leading-snug pl-6">{desc}</span>
               </button>
             );
           })}
         </div>
-
-        {/* Default mark-as-delivered — sub-section */}
-        {draft.enableTransactionalInvoice && (
-          <div className={`mx-[-24px] mb-4 rounded-b-[10px] border-t border-gray-200 bg-gray-50/70 px-6 pt-4 pb-4 flex flex-col gap-3 transition-opacity duration-200 ${draft.transactionalMode === "strict" ? "opacity-40 pointer-events-none select-none" : ""}`}>
-            <div className="flex flex-col gap-0.5">
-              <span className="text-[14px] font-semibold text-gray-900">'Mark as Delivered' default state</span>
-              <span className="text-[13px] text-gray-500">Controls whether the checkbox opens pre-checked or unchecked when creating or converting an invoice. Users can always change it before confirming.</span>
-            </div>
-            <div className="flex gap-3">
-              {([false, true] as const).map(val => {
-                const selected = draft.defaultMarkAsDelivered === val;
-                return (
-                  <button
-                    key={String(val)}
-                    onClick={() => setDraft(d => ({ ...d, defaultMarkAsDelivered: val }))}
-                    className={`flex flex-col gap-1.5 text-left cursor-pointer px-3.5 py-3 rounded-[10px] transition-colors ${selected ? "bg-indigo-50" : "bg-white hover:bg-gray-100"}`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center transition-colors ${selected ? "border-indigo-500" : "border-gray-300"}`}>
-                        {selected && <div className="w-2 h-2 rounded-full bg-indigo-500" />}
-                      </div>
-                      {val
-                        ? <CheckSquare className={`w-3.5 h-3.5 ${selected ? "text-indigo-500" : "text-gray-400"}`} />
-                        : <Square className={`w-3.5 h-3.5 ${selected ? "text-indigo-500" : "text-gray-400"}`} />
-                      }
-                      <span className={`text-[13px] font-semibold ${selected ? "text-indigo-700" : "text-gray-600"}`}>
-                        {val ? "Checked" : "Unchecked"}
-                      </span>
-                    </div>
-                    <span className="text-[11px] text-gray-400 leading-snug pl-6">
-                      {val ? "Opens pre-checked by default." : "Opens unchecked by default."}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </div>
     </TabShell>
   );
 }
 
 // ── Main export ───────────────────────────────────────────────────────────────
-export function SODNPermissionsPage({ initialTab, onBack }: Props) {
+export function SODNPermissionsPage({ initialTab, onBack, onNavigate }: Props) {
   const [activeTab, setActiveTab] = useState(initialTab);
 
   const renderTab = () => {
     switch (activeTab) {
       case "Reservations permissions":
-        return <ReservationsTab onNavigateTo={setActiveTab} />;
+        return <ReservationsTab onNavigateTo={setActiveTab} onNavigateToRoute={onNavigate} />;
 
       case "Sales orders permissions":
         return <SalesOrdersTab />;

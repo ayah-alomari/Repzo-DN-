@@ -79,7 +79,7 @@ const CARDS: SettingsCardData[] = [
   },
 ];
 
-export function SettingsPage() {
+export function SettingsPage({ onNavigate }: { onNavigate?: (route: string) => void }) {
   const [search, setSearch] = useState("");
   const [detail, setDetail] = useState<{ cardId: string; tab: string } | null>(null);
 
@@ -88,6 +88,7 @@ export function SettingsPage() {
       <SODNPermissionsPage
         initialTab={detail.tab}
         onBack={() => setDetail(null)}
+        onNavigate={onNavigate}
       />
     );
   }

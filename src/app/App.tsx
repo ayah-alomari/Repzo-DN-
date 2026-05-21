@@ -182,7 +182,7 @@ function AppInner() {
       ) : currentRoute === "pickup-note-life-cycle" ? (
         <LifeCyclePlaceholderPage activeRoute="pickup-note-life-cycle" pageName="Return Note Life Cycle" onNavigate={setCurrentRoute} />
       ) : currentRoute === "settings" ? (
-        <SettingsPage />
+        <SettingsPage onNavigate={setCurrentRoute} />
       ) : currentRoute === "home" ? (
         <Dashboard />
       ) : currentRoute === "planogram" ? (

@@ -485,10 +485,8 @@ interface AppDataContextValue {
   setPreventInvoiceReservations: React.Dispatch<React.SetStateAction<boolean>>;
   enableTransactionalInvoice: boolean;
   setEnableTransactionalInvoice: React.Dispatch<React.SetStateAction<boolean>>;
-  transactionalMode: "optional" | "strict";
-  setTransactionalMode: React.Dispatch<React.SetStateAction<"optional" | "strict">>;
-  defaultMarkAsDelivered: boolean;
-  setDefaultMarkAsDelivered: React.Dispatch<React.SetStateAction<boolean>>;
+  transactionalMode: "unchecked" | "checked" | "strict";
+  setTransactionalMode: React.Dispatch<React.SetStateAction<"unchecked" | "checked" | "strict">>;
 
   // global list data
   salesOrders: SalesOrderRecord[];
@@ -528,9 +526,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [allowSOApprovalWithoutStock, setAllowSOApprovalWithoutStock] = useState(true);
   const [allowNegativeReservation, setAllowNegativeReservation] = useState(false);
   const [preventInvoiceReservations, setPreventInvoiceReservations] = useState(false);
-  const [enableTransactionalInvoice, setEnableTransactionalInvoice] = useState(true);
-  const [transactionalMode, setTransactionalMode] = useState<"optional" | "strict">("optional");
-  const [defaultMarkAsDelivered, setDefaultMarkAsDelivered] = useState(false);
+  const [enableTransactionalInvoice, setEnableTransactionalInvoice] = useState(false);
+  const [transactionalMode, setTransactionalMode] = useState<"unchecked" | "checked" | "strict">("unchecked");
 
   const [salesOrders, setSalesOrders] = useState<SalesOrderRecord[]>(() => INITIAL_SALES_ORDERS.map(o => ({ ...o })));
   const [invoices, setInvoices] = useState<InvoiceRecord[]>(() => INITIAL_INVOICES.map(i => ({ ...i })));
@@ -558,8 +555,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     setTransferList(INITIAL_TRANSFER_LIST.map(t => ({ ...t })));
     setReservationAuditLog([...INITIAL_RESERVATION_AUDIT_LOG]);
     setSOAuditLog([]);
-    setEnableTransactionalInvoice(true);
-    setTransactionalMode("optional");
+    setEnableTransactionalInvoice(false);
+    setTransactionalMode("unchecked");
   };
 
   return (
@@ -580,7 +577,6 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       preventInvoiceReservations, setPreventInvoiceReservations,
       enableTransactionalInvoice, setEnableTransactionalInvoice,
       transactionalMode, setTransactionalMode,
-      defaultMarkAsDelivered, setDefaultMarkAsDelivered,
       salesOrders, setSalesOrders,
       invoices, setInvoices,
       dnList, setDnList,

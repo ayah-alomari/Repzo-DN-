@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { ArrowLeft, Edit2, ChevronDown, Check } from "lucide-react";
 import { Switch } from "../ui/switch";
 import { ItemsTable, CartRow } from "./ItemsTable";
-import { useAppData, InvoiceRecord } from "../../context/AppDataContext";
+import { useAppData, InvoiceRecord, OrderItem } from "../../context/AppDataContext";
 import { useRef } from "react";
 
 interface CreateInvoicePageProps {
@@ -12,20 +12,20 @@ interface CreateInvoicePageProps {
 }
 
 export function CreateInvoicePage({ onBack, onSave, onNavigateToInvoice }: CreateInvoicePageProps) {
-  const { setInvoices, enableTransactionalInvoice, transactionalMode, defaultMarkAsDelivered } = useAppData();
+  const { setInvoices, enableTransactionalInvoice, transactionalMode } = useAppData();
   const tableRef = useRef<{ addRow: () => void; addReturnRow: () => void }>({ addRow: () => {}, addReturnRow: () => {} });
   const [rep, setRep] = useState("");
   const [client, setClient] = useState("");
   const [warehouse, setWarehouse] = useState("");
 
-  const defaultIsDelivered = enableTransactionalInvoice && (transactionalMode === "strict" || defaultMarkAsDelivered);
+  const defaultIsDelivered = !enableTransactionalInvoice || transactionalMode === "checked";
   const [isDelivered, setIsDelivered] = useState(defaultIsDelivered);
 
   useEffect(() => {
-    setIsDelivered(enableTransactionalInvoice && (transactionalMode === "strict" || defaultMarkAsDelivered));
-  }, [enableTransactionalInvoice, transactionalMode, defaultMarkAsDelivered]);
+    setIsDelivered(!enableTransactionalInvoice || transactionalMode === "checked");
+  }, [enableTransactionalInvoice, transactionalMode]);
 
-  const isCheckboxDisabled = !enableTransactionalInvoice || (enableTransactionalInvoice && transactionalMode === "strict");
+  const isCheckboxDisabled = !enableTransactionalInvoice || transactionalMode === "strict";
 
   const [posMode, setPosMode] = useState(false);
   const [clearKey, setClearKey] = useState(0);
@@ -38,7 +38,7 @@ export function CreateInvoicePage({ onBack, onSave, onNavigateToInvoice }: Creat
     setRep("");
     setClient("");
     setWarehouse("");
-    setIsDelivered(enableTransactionalInvoice && (transactionalMode === "strict" || defaultMarkAsDelivered));
+    setIsDelivered(!enableTransactionalInvoice || transactionalMode === "checked");
     setClearKey(k => k + 1);
   }
 
@@ -71,7 +71,7 @@ export function CreateInvoicePage({ onBack, onSave, onNavigateToInvoice }: Creat
       balance: `JOD ${totalStr}`,
       paymentType: "Cash",
       status: "APPROVED",
-      delivery: isDelivered ? "Delivered" : "No DN",
+      delivery: isDelivered ? "Delivered" : "No Delivery Note",
       comment: "",
       itemsData,
     };
