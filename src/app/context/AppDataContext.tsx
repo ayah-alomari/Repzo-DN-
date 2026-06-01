@@ -190,10 +190,11 @@ export interface PNRecord {
   id: string;
   rnNumber: string;
   status: PNStatus;
-  sourceSOId: string;
-  sourceSONumber: string;
-  sourceDNs: { id: string; number: string }[];
-  invoiceNumber: string;
+  sourceSOId?: string;
+  sourceSONumber?: string;
+  sourceInvoiceId?: string;
+  sourceInvoiceNumber?: string;
+  sourceDN?: { id: string; number: string };
   clientName: string;
   rep: string;
   createdBy: string;
@@ -205,7 +206,7 @@ export interface PNRecord {
   createdDate: string;
   inRepVan: boolean;
   creditNoteStatus: "Issued" | "Pending" | "N/A";
-  invoicePaymentStatus: "Paid" | "Partially Paid" | "Unpaid";
+  invoicePaymentStatus: "Paid" | "Partially Paid" | "Invoiced Not Paid" | "Not Invoiced";
   repConfirmed: boolean;
   adminConfirmed: boolean;
   itemsData?: PNItem[];
@@ -382,11 +383,11 @@ const INITIAL_UNLOAD_LIST: UnloadRecord[] = [
 ];
 
 const INITIAL_PN_LIST: PNRecord[] = [
-  { id: "RN-001", rnNumber: "RN-001", status: "PENDING", sourceSOId: "PRO-1734-88", sourceSONumber: "PRO-1734-88", sourceDNs: [{ id: "DN-ADM-0041", number: "DN-ADM-0041" }], invoiceNumber: "INV-2026-001", clientName: "test 666 11717", rep: "Ahmad Alshaikh", createdBy: "Ahmad Alshaikh", warehouse: "Main Branch", destinationWarehouse: "Main Warehouse", items: 2, reservedCount: 2, createdDate: "08/04/2026", inRepVan: false, creditNoteStatus: "Pending", invoicePaymentStatus: "Paid", repConfirmed: false, adminConfirmed: false, itemsData: [{ id: "itm1", name: "American Coffe", sku: "AC-500", unit: "Piece", deliveredQty: 5, returnQty: 2, status: "Reserved", condition: "Resellable" }] },
-  { id: "RN-002", rnNumber: "RN-002", status: "PROCESSING", sourceSOId: "PRO-1734-87", sourceSONumber: "PRO-1734-87", sourceDNs: [{ id: "DN-1734-18", number: "DN-1734-18" }], invoiceNumber: "INV-2026-002", clientName: "Karak Test", rep: "REP khaled", createdBy: "REP khaled", warehouse: "Zarqaa Warehouse", destinationWarehouse: "Rep Van", destinationRep: "REP khaled", items: 1, reservedCount: 1, createdDate: "07/04/2026", inRepVan: true, creditNoteStatus: "N/A", invoicePaymentStatus: "Unpaid", repConfirmed: true, adminConfirmed: false, itemsData: [{ id: "itm2", name: "Croissant", sku: "CR-001", unit: "Box", deliveredQty: 3, returnQty: 3, status: "Reserved", condition: "Damaged" }] },
-  { id: "RN-003", rnNumber: "RN-003", status: "RECEIVED", sourceSOId: "PRO-1545-693", sourceSONumber: "PRO-1545-693", sourceDNs: [{ id: "DN-1545-22", number: "DN-1545-22" }, { id: "DN-1545-21", number: "DN-1545-21" }], invoiceNumber: "INV-2026-003", clientName: "99ik", rep: "REP khaled", createdBy: "ADMIN Yousef1", warehouse: "Khald Warehouse", destinationWarehouse: "Main Warehouse", items: 3, reservedCount: 3, createdDate: "01/02/2026", inRepVan: false, creditNoteStatus: "Issued", invoicePaymentStatus: "Partially Paid", repConfirmed: true, adminConfirmed: true, itemsData: [] },
-  { id: "RN-004", rnNumber: "RN-004", status: "CANCELED", sourceSOId: "PRO-1545-692", sourceSONumber: "PRO-1545-692", sourceDNs: [{ id: "DN-1545-21", number: "DN-1545-21" }], invoiceNumber: "INV-2026-004", clientName: "new m2", rep: "REP Ahmad Abudre", createdBy: "REP Ahmad Abudre", warehouse: "Dream Warehouse", destinationWarehouse: "Main Warehouse", items: 1, reservedCount: 0, createdDate: "12/01/2026", inRepVan: false, creditNoteStatus: "N/A", invoicePaymentStatus: "Unpaid", repConfirmed: false, adminConfirmed: false, itemsData: [] },
-  { id: "RN-005", rnNumber: "RN-005", status: "PENDING", sourceSOId: "PRO-ADM-2179", sourceSONumber: "PRO-ADM-2179", sourceDNs: [{ id: "DN-ADM-0040", number: "DN-ADM-0040" }], invoiceNumber: "INV-2026-005", clientName: "Karak Tes", rep: "ADMIN Yousef1", createdBy: "ADMIN Yousef1", warehouse: "Main Branch", destinationWarehouse: "Rep Van", destinationRep: "ADMIN Yousef1", items: 4, reservedCount: 4, createdDate: "06/04/2026", inRepVan: true, creditNoteStatus: "Pending", invoicePaymentStatus: "Paid", repConfirmed: false, adminConfirmed: false, itemsData: [] },
+  { id: "RN-001", rnNumber: "RN-001", status: "PENDING", sourceSOId: "PRO-1734-88", sourceSONumber: "PRO-1734-88", sourceDN: { id: "DN-ADM-0041", number: "DN-ADM-0041" }, clientName: "test 666 11717", rep: "Ahmad Alshaikh", createdBy: "Ahmad Alshaikh", warehouse: "Main Branch", destinationWarehouse: "Main Warehouse", items: 2, reservedCount: 2, createdDate: "08/04/2026", inRepVan: false, creditNoteStatus: "Pending", invoicePaymentStatus: "Paid", repConfirmed: false, adminConfirmed: false, itemsData: [{ id: "itm1", name: "American Coffe", sku: "AC-500", unit: "Piece", deliveredQty: 5, returnQty: 2, status: "Reserved", condition: "Resellable" }] },
+  { id: "RN-002", rnNumber: "RN-002", status: "PROCESSING", sourceInvoiceId: "INV-2026-002", sourceInvoiceNumber: "INV-2026-002", sourceDN: { id: "DN-1734-18", number: "DN-1734-18" }, clientName: "Karak Test", rep: "REP khaled", createdBy: "REP khaled", warehouse: "Zarqaa Warehouse", destinationWarehouse: "Rep Van", destinationRep: "REP khaled", items: 1, reservedCount: 1, createdDate: "07/04/2026", inRepVan: true, creditNoteStatus: "N/A", invoicePaymentStatus: "Invoiced Not Paid", repConfirmed: true, adminConfirmed: false, itemsData: [{ id: "itm2", name: "Croissant", sku: "CR-001", unit: "Box", deliveredQty: 3, returnQty: 3, status: "Reserved", condition: "Damaged" }] },
+  { id: "RN-003", rnNumber: "RN-003", status: "RECEIVED", sourceSOId: "PRO-1545-693", sourceSONumber: "PRO-1545-693", sourceDN: { id: "DN-1545-22", number: "DN-1545-22" }, clientName: "99ik", rep: "REP khaled", createdBy: "ADMIN Yousef1", warehouse: "Khald Warehouse", destinationWarehouse: "Main Warehouse", items: 3, reservedCount: 3, createdDate: "01/02/2026", inRepVan: false, creditNoteStatus: "Issued", invoicePaymentStatus: "Partially Paid", repConfirmed: true, adminConfirmed: true, itemsData: [] },
+  { id: "RN-004", rnNumber: "RN-004", status: "CANCELED", sourceInvoiceId: "INV-2026-004", sourceInvoiceNumber: "INV-2026-004", sourceDN: { id: "DN-1545-21", number: "DN-1545-21" }, clientName: "new m2", rep: "REP Ahmad Abudre", createdBy: "REP Ahmad Abudre", warehouse: "Dream Warehouse", destinationWarehouse: "Main Warehouse", items: 1, reservedCount: 0, createdDate: "12/01/2026", inRepVan: false, creditNoteStatus: "N/A", invoicePaymentStatus: "Not Invoiced", repConfirmed: false, adminConfirmed: false, itemsData: [] },
+  { id: "RN-005", rnNumber: "RN-005", status: "PENDING", sourceSOId: "PRO-ADM-2179", sourceSONumber: "PRO-ADM-2179", sourceDN: { id: "DN-ADM-0040", number: "DN-ADM-0040" }, clientName: "Karak Tes", rep: "ADMIN Yousef1", createdBy: "ADMIN Yousef1", warehouse: "Main Branch", destinationWarehouse: "Rep Van", destinationRep: "ADMIN Yousef1", items: 4, reservedCount: 4, createdDate: "06/04/2026", inRepVan: true, creditNoteStatus: "Pending", invoicePaymentStatus: "Paid", repConfirmed: false, adminConfirmed: false, itemsData: [] },
 ];
 
 const INITIAL_TRANSFER_LIST: TransferRecord[] = [

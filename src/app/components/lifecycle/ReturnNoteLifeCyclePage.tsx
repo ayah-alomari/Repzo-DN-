@@ -1,18 +1,17 @@
 import {
   FileText,
+  RotateCcw,
   Truck,
-  ClipboardList,
   CheckCircle2,
-  Settings2,
-  PackageCheck,
-  XCircle,
+  PackageMinus,
+  Warehouse,
   Info,
   CheckCircle,
+  XCircle,
+  ExternalLink,
 } from "lucide-react";
 import { TopNav } from "../TopNav";
 import { LIFECYCLE_TABS } from "./LifeCycleTabs";
-
-// ── shared node ──────────────────────────────────────────────────────────────
 
 type FlowColor = "blue" | "green" | "purple" | "amber" | "orange" | "indigo" | "red";
 
@@ -27,22 +26,28 @@ const C: Record<FlowColor, { border: string; iconBg: string; iconColor: string }
 };
 
 function FlowNode({
-  color, label, icon: Icon, actor, grow,
+  color, label, icon: Icon, actor, grow, onClick, note,
 }: {
   color: FlowColor; label: string; icon: React.ElementType;
   actor?: "admin" | "rep" | "auto"; grow?: boolean;
+  onClick?: () => void; note?: string;
 }) {
   const s = C[color];
-  const actorDot = actor === "admin" ? "bg-indigo-400" : actor === "rep" ? "bg-orange-400" : "bg-gray-300";
+  const actorDot   = actor === "admin" ? "bg-indigo-400" : actor === "rep" ? "bg-orange-400" : "bg-gray-300";
   const actorColor = actor === "admin" ? "text-indigo-400" : actor === "rep" ? "text-orange-400" : "text-[#8b8b9e]";
   const actorLabel = actor === "admin" ? "Admin" : actor === "rep" ? "Rep (mobile)" : "System";
+  const Tag = onClick ? "button" : "div";
   return (
-    <div className={`${grow ? "flex w-full" : "inline-flex"} items-center gap-3 px-5 py-4 rounded-2xl border-2 bg-white ${s.border} shadow-sm`}>
+    <Tag
+      onClick={onClick}
+      className={`${grow ? "flex w-full" : "inline-flex"} items-center gap-3 px-5 py-4 rounded-2xl border-2 bg-white ${s.border} shadow-sm ${onClick ? "cursor-pointer hover:border-indigo-300 hover:shadow-md transition-all" : ""}`}
+    >
       <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${s.iconBg}`}>
         <Icon className={`w-5 h-5 ${s.iconColor}`} />
       </div>
-      <div>
+      <div className="flex-1 min-w-0">
         <div className="text-[12px] font-bold text-[#1a1a2e] uppercase tracking-wide whitespace-nowrap">{label}</div>
+        {note && <div className="text-[10px] text-gray-400 mt-0.5">{note}</div>}
         {actor && (
           <div className="flex items-center gap-1 mt-1">
             <div className={`w-1.5 h-1.5 rounded-full ${actorDot}`} />
@@ -50,11 +55,10 @@ function FlowNode({
           </div>
         )}
       </div>
-    </div>
+      {onClick && <ExternalLink className="w-3.5 h-3.5 text-indigo-400 shrink-0 ml-1" />}
+    </Tag>
   );
 }
-
-// ── arrows ───────────────────────────────────────────────────────────────────
 
 function ArrowRight({ label }: { label?: string }) {
   return (
@@ -98,123 +102,107 @@ function Rule({ text }: { text: string }) {
   );
 }
 
-// ── page ────────────────────────────────────────────────────────────────────
-
-export function DNLifeCyclePage({ onNavigate }: { onNavigate?: (route: string) => void }) {
+export function ReturnNoteLifeCyclePage({ onNavigate }: { onNavigate?: (route: string) => void }) {
   return (
     <div className="flex-1 flex flex-col min-w-0 bg-[#f7f7f9] overflow-hidden">
-      <TopNav customTabs={LIFECYCLE_TABS} activeRoute="dn-life-cycle" onNavigate={onNavigate} />
+      <TopNav customTabs={LIFECYCLE_TABS} activeRoute="pickup-note-life-cycle" onNavigate={onNavigate} />
 
-      {/* Page header */}
       <div className="shrink-0 bg-white border-b border-[#e8e8ec] px-10 py-7">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-[22px] font-bold text-[#1a1a2e]">Delivery Note Life Cycle</h1>
+            <h1 className="text-[22px] font-bold text-[#1a1a2e]">Return Note Life Cycle</h1>
             <p className="text-[13px] text-[#8b8b9e] mt-0.5">
-              A visual guide to how a delivery note flows from creation to goods delivered
+              How a return note is created from an invoice and items are returned to stock
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => onNavigate?.("dn-life-cycle-v2")}
-              className="px-4 py-2 text-[13px] font-medium text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer"
-            >
-              View V2
-            </button>
-            <button
-              onClick={() => onNavigate?.("delivery-notes")}
-              className="flex items-center gap-2 px-4 py-2 bg-[#1a1a2e] text-white text-[13px] font-medium rounded-xl hover:bg-[#2a2a3e] transition-colors cursor-pointer shrink-0"
-            >
-              <Truck className="w-4 h-4" />
-              Go to delivery notes
-            </button>
-          </div>
+          <button
+            onClick={() => onNavigate?.("pickup-note")}
+            className="flex items-center gap-2 px-4 py-2 bg-[#1a1a2e] text-white text-[13px] font-medium rounded-xl hover:bg-[#2a2a3e] transition-colors cursor-pointer shrink-0"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Go to return notes
+          </button>
         </div>
       </div>
 
-      {/* Scrollable content */}
       <div className="flex-1 overflow-auto px-10 py-8">
 
-        {/* ── Diagram card ── */}
+        {/* Diagram */}
         <div className="bg-white rounded-2xl border border-[#e8e8ec] shadow-sm px-10 py-10 mb-5">
-
-          <h2 className="text-[15px] font-bold text-[#1a1a2e] mb-8 tracking-tight">
-            Delivery note — transfer &amp; delivery flow
+          <h2 className="text-[15px] font-bold text-[#1a1a2e] mb-2 tracking-tight">
+            Return note — from invoice to items returned
           </h2>
+          <p className="text-[12px] text-gray-400 mb-8">
+            A return note is created from an invoice to reverse delivered items.
+            The rep collects the items on the mobile app, and admin confirms the return to update inventory.
+          </p>
 
           {/*
-            Layout: 5 columns, 3 rows
-            Row 1 (left→right): DN Created → Transfer Created → Admin Confirms Transfer
-            Row 2: down arrow at col 5
-            Row 3 (right→left): Goods Delivered ← DN Processing ← Rep Confirms Transfer
+            5 cols, 3 rows — same snake pattern
+            Row 1 (left→right): Invoice → Return Note Created → Rep Collects Items → Admin Confirms
+            Row 2: drop at col 5
+            Row 3 (right→left): Stock Updated ← Warehouse Received ← Return Transfer
           */}
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "auto 130px auto 130px auto",
+              gridTemplateColumns: "auto 100px auto 100px auto",
               gridTemplateRows: "auto 80px auto",
               alignItems: "center",
             }}
           >
-            {/* ── Row 1 ── */}
-
+            {/* Row 1 */}
             <div style={{ gridColumn: "1", gridRow: "1" }}>
-              <FlowNode color="blue" label="Delivery Note Created" icon={FileText} actor="admin" grow />
+              <FlowNode color="blue" label="Invoice" icon={FileText} actor="admin" grow
+                onClick={() => onNavigate?.("invoice-life-cycle")}
+                note="see invoice life cycle"
+              />
             </div>
-
             <div style={{ gridColumn: "2", gridRow: "1" }} className="flex items-center">
               <ArrowRight />
             </div>
-
             <div style={{ gridColumn: "3", gridRow: "1" }}>
-              <FlowNode color="purple" label="Transfer Created" icon={Truck} actor="auto" grow />
+              <FlowNode color="orange" label="Return Note Created" icon={RotateCcw} actor="admin" grow />
             </div>
-
             <div style={{ gridColumn: "4", gridRow: "1" }} className="flex items-center">
-              <ArrowRight label="confirm transfer" />
+              <ArrowRight />
             </div>
-
             <div style={{ gridColumn: "5", gridRow: "1" }}>
-              <FlowNode color="amber" label="Admin Confirms Transfer" icon={ClipboardList} actor="admin" grow />
+              <FlowNode color="purple" label="Rep Collects Items" icon={PackageMinus} actor="rep" grow />
             </div>
 
-            {/* ── Down arrow col 5 ── */}
+            {/* Drop */}
             <div style={{ gridColumn: "5", gridRow: "2" }} className="flex justify-center">
               <ArrowDown />
             </div>
 
-            {/* ── Row 3 (reversed) ── */}
-
+            {/* Row 3 */}
             <div style={{ gridColumn: "1", gridRow: "3" }}>
-              <FlowNode color="green" label="Goods Delivered" icon={PackageCheck} actor="rep" grow />
+              <FlowNode color="green" label="Stock Updated" icon={Warehouse} actor="auto" grow />
             </div>
-
             <div style={{ gridColumn: "2", gridRow: "3" }} className="flex items-center">
               <ArrowLeft />
             </div>
-
             <div style={{ gridColumn: "3", gridRow: "3" }}>
-              <FlowNode color="indigo" label="Delivery Note Processing" icon={Settings2} actor="rep" grow />
+              <FlowNode color="green" label="Return Confirmed" icon={CheckCircle2} actor="admin" grow />
             </div>
-
             <div style={{ gridColumn: "4", gridRow: "3" }} className="flex items-center">
-              <ArrowLeft label="rep confirms" />
+              <ArrowLeft label="return transfer" />
             </div>
-
             <div style={{ gridColumn: "5", gridRow: "3" }}>
-              <FlowNode color="green" label="Rep Confirms Transfer" icon={CheckCircle2} actor="rep" grow />
+              <FlowNode color="amber" label="Items Back in Transit" icon={Truck} actor="auto" grow />
             </div>
           </div>
 
-          {/* Cancellation branch */}
+          {/* Cancellation note */}
           <div className="flex items-center gap-5 mt-8 pt-6 border-t border-dashed border-[#e8e8ec]">
             <div className="shrink-0">
-              <FlowNode color="red" label="Delivery Note Cancelled" icon={XCircle} actor="admin" />
+              <FlowNode color="red" label="Return Note Cancelled" icon={XCircle} actor="admin" />
             </div>
             <p className="text-[12px] text-gray-400 leading-relaxed">
-              If the admin <strong className="text-gray-500">cancels</strong> the delivery note while it's in Processing,
-              the system auto-creates a <strong className="text-gray-500">return transfer</strong>. Reservations
-              are never revoked on cancellation — they must be released manually.
+              A return note can be <strong className="text-gray-500">cancelled</strong> before the rep confirms collection.
+              Once the rep has collected the items, the return cannot be cancelled —
+              the return transfer must be completed.
             </p>
           </div>
         </div>
@@ -234,37 +222,36 @@ export function DNLifeCyclePage({ onNavigate }: { onNavigate?: (route: string) =
           ))}
         </div>
 
-        {/* Rules cards */}
+        {/* Rules */}
         <div className="grid grid-cols-2 gap-5">
           <div className="bg-white rounded-xl border border-[#e8e8ec] p-6">
             <h3 className="text-[13px] font-bold text-[#1a1a2e] mb-4 flex items-center gap-2">
               <Info className="w-4 h-4 text-indigo-400" />
-              Delivery Note &amp; Transfer Rules
+              Return Note Rules
             </h3>
             <ul className="space-y-3">
-              <Rule text="A delivery note can only be created from an approved sales order" />
-              <Rule text="Multiple delivery notes can be created for a single SO" />
-              <Rule text="Admin must confirm the transfer before the rep can receive it" />
-              <Rule text="After transfer confirmation, the rep's van inventory is updated" />
-              <Rule text="A delivery note in Processing can be cancelled — this auto-creates a return transfer" />
+              <Rule text="A return note can only be created from an existing invoice" />
+              <Rule text="Partial returns are supported — not all items need to be returned" />
+              <Rule text="The rep confirms the item pickup on the mobile app" />
+              <Rule text="Admin must confirm the return before stock is updated" />
+              <Rule text="A return note can be cancelled before the rep confirms collection" />
             </ul>
           </div>
           <div className="bg-white rounded-xl border border-[#e8e8ec] p-6">
             <h3 className="text-[13px] font-bold text-[#1a1a2e] mb-4 flex items-center gap-2">
               <Info className="w-4 h-4 text-orange-400" />
-              Delivery Rules
+              Stock &amp; Inventory Notes
             </h3>
             <ul className="space-y-3">
-              <Rule text="Rep marks goods as delivered on the mobile app — not on this dashboard" />
-              <Rule text="Cancelling a delivery note never revokes reservations — they remain active" />
-              <Rule text="A delivered delivery note cannot be modified or cancelled" />
-              <Rule text="Partial deliveries are not supported — the delivery note is fully delivered or not" />
-              <Rule text="Return transfers from a cancelled delivery note must be confirmed by admin" />
+              <Rule text="Returned items go back to the warehouse selected at return confirmation" />
+              <Rule text="Stock is updated automatically once admin confirms the return" />
+              <Rule text="A confirmed return cannot be reversed — create a new invoice if needed" />
+              <Rule text="Return notes do not automatically release reservations on the original invoice" />
+              <Rule text="Multiple return notes can be created for the same invoice" />
             </ul>
           </div>
         </div>
 
-        {/* Bottom breathing room */}
         <div className="h-8" />
       </div>
     </div>

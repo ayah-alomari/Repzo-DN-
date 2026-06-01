@@ -13,6 +13,7 @@ import { UnloadPage } from "./components/sales/UnloadPage";
 import { UnloadDetailsPage } from "./components/sales/UnloadDetailsPage";
 import { PickupNotesPage as ReturnNotesPage } from "./components/sales/PickupNotesPage";
 import { PickupNoteDetailsPage as ReturnNoteDetailsPage } from "./components/sales/PickupNoteDetailsPage";
+import { PickupNoteDetailsPageV2 as ReturnNoteDetailsPageV2 } from "./components/sales/PickupNoteDetailsPageV2";
 import { InvoicesPage } from "./components/sales/InvoicesPage";
 import { InvoiceDetailsPage } from "./components/sales/InvoiceDetailsPage";
 import { CreateSalesOrderPage } from "./components/sales/CreateSalesOrderPage";
@@ -25,7 +26,11 @@ import { SettingsPage } from "./components/SettingsPage";
 import { SOLifeCyclePage } from "./components/lifecycle/SOLifeCyclePage";
 import { SOLifeCyclePageV2 } from "./components/lifecycle/SOLifeCyclePageV2";
 import { DNLifeCyclePage } from "./components/lifecycle/DNLifeCyclePage";
+import { DNLifeCyclePageV2 } from "./components/lifecycle/DNLifeCyclePageV2";
 import { LifeCyclePlaceholderPage } from "./components/lifecycle/LifeCyclePlaceholderPage";
+import { InvoiceLifeCyclePage } from "./components/lifecycle/InvoiceLifeCyclePage";
+import { UnloadLifeCyclePage } from "./components/lifecycle/UnloadLifeCyclePage";
+import { ReturnNoteLifeCyclePage } from "./components/lifecycle/ReturnNoteLifeCyclePage";
 import { AppDataProvider, useAppData } from "./context/AppDataContext";
 
 export default function App() {
@@ -109,7 +114,7 @@ function AppInner() {
           onBack={() => setCurrentRoute(dnBackRoute)}
           onNavigateToSO={(soId) => { setSelectedOrderId(soId); setCurrentRoute("sales-order-details"); }}
           onNavigateToUnload={() => setCurrentRoute("dn-unloads")}
-          onNavigateToRN={(pnId) => { setSelectedPNId(pnId); setCurrentRoute("pickup-note-details"); }}
+          onNavigateToPN={(pnId) => { setSelectedPNId(pnId); setCurrentRoute("pickup-note-details-v2"); }}
           onNavigateToTransfer={(id) => { setSelectedTransferId(id); setCurrentRoute("transfer-details"); }}
           isUnloadContext={dnBackRoute === "dn-unloads"}
         />
@@ -125,6 +130,15 @@ function AppInner() {
           onNavigateToSO={(soId) => { setSelectedOrderId(soId); setCurrentRoute("sales-order-details"); }}
           onNavigateToDN={(dnId) => { setSelectedDNId(dnId); setDnBackRoute("pickup-note-details"); setCurrentRoute("delivery-note-details"); }}
           onNavigateToTransfer={(id) => { setSelectedTransferId(id); setCurrentRoute("transfer-details"); }}
+          onNavigateToV2={() => setCurrentRoute("pickup-note-details-v2")}
+        />
+      ) : currentRoute === "pickup-note-details-v2" ? (
+        <ReturnNoteDetailsPageV2
+          pnId={selectedPNId}
+          onBack={() => setCurrentRoute("pickup-note")}
+          onNavigateToSO={(soId) => { setSelectedOrderId(soId); setCurrentRoute("sales-order-details"); }}
+          onNavigateToTransfer={(id) => { setSelectedTransferId(id); setCurrentRoute("transfer-details"); }}
+          onViewV1={() => setCurrentRoute("pickup-note-details")}
         />
       ) : currentRoute === "create-invoice" ? (
         <CreateInvoicePage 
@@ -175,12 +189,14 @@ function AppInner() {
         <SOLifeCyclePageV2 onNavigate={setCurrentRoute} />
       ) : currentRoute === "dn-life-cycle" ? (
         <DNLifeCyclePage onNavigate={setCurrentRoute} />
+      ) : currentRoute === "dn-life-cycle-v2" ? (
+        <DNLifeCyclePageV2 onNavigate={setCurrentRoute} />
       ) : currentRoute === "invoice-life-cycle" ? (
-        <LifeCyclePlaceholderPage activeRoute="invoice-life-cycle" pageName="Invoice Life Cycle" onNavigate={setCurrentRoute} />
+        <InvoiceLifeCyclePage onNavigate={setCurrentRoute} />
       ) : currentRoute === "unload-life-cycle" ? (
-        <LifeCyclePlaceholderPage activeRoute="unload-life-cycle" pageName="Unload Life Cycle" onNavigate={setCurrentRoute} />
+        <UnloadLifeCyclePage onNavigate={setCurrentRoute} />
       ) : currentRoute === "pickup-note-life-cycle" ? (
-        <LifeCyclePlaceholderPage activeRoute="pickup-note-life-cycle" pageName="Return Note Life Cycle" onNavigate={setCurrentRoute} />
+        <ReturnNoteLifeCyclePage onNavigate={setCurrentRoute} />
       ) : currentRoute === "settings" ? (
         <SettingsPage onNavigate={setCurrentRoute} />
       ) : currentRoute === "home" ? (

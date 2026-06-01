@@ -11,6 +11,7 @@ interface PickupNoteDetailsPageProps {
   onBack: () => void;
   onNavigateToSO?: (soId: string) => void;
   onNavigateToTransfer?: (transferId: string) => void;
+  onNavigateToV2?: () => void;
 }
 
 type PNStatus = "PENDING" | "PROCESSING" | "RECEIVED" | "CANCELED";
@@ -24,15 +25,15 @@ interface PNItem {
   deliveredQty: number;
   returnQty: number;
   status: "Reserved" | "Damaged" | "Resellable" | "Pending" | "Free";
-  condition: "Resellable" | "Damaged" | null;
 }
 
 interface PNRecord {
   id: string;
-  sourceSOId: string;
-  sourceSO: string;
-  sourceDNs: { id: string; number: string; itemsCount: number }[];
-  invoiceNumber: string;
+  sourceSOId?: string;
+  sourceSO?: string;
+  sourceInvoiceId?: string;
+  sourceInvoice?: string;
+  sourceDN?: { id: string; number: string; itemsCount: number };
   client: string;
   rep: string;
   warehouse: string;
@@ -59,7 +60,7 @@ const STATUS_COLORS: Record<PNStatus, { bg: string; text: string; border: string
 
 const steps = ["PENDING", "PROCESSING", "RECEIVED"] as const;
 
-export function PickupNoteDetailsPage({ pnId, onBack, onNavigateToSO, onNavigateToTransfer }: PickupNoteDetailsPageProps) {
+export function PickupNoteDetailsPage({ pnId, onBack, onNavigateToSO, onNavigateToTransfer, onNavigateToV2 }: PickupNoteDetailsPageProps) {
   const { pnList, setPnList, transferList } = useAppData();
   const relatedTransfer = transferList.find(t => t.sourceRNId === pnId);
 
@@ -71,8 +72,9 @@ export function PickupNoteDetailsPage({ pnId, onBack, onNavigateToSO, onNavigate
       id: record.id,
       sourceSOId: record.sourceSOId,
       sourceSO: record.sourceSONumber,
-      sourceDNs: record.sourceDNs.map(d => ({ ...d, itemsCount: d.itemsCount || 0 })),
-      invoiceNumber: record.invoiceNumber,
+      sourceInvoiceId: record.sourceInvoiceId,
+      sourceInvoice: record.sourceInvoiceNumber,
+      sourceDN: record.sourceDN ? { ...record.sourceDN, itemsCount: (record.sourceDN as any).itemsCount || 0 } : undefined,
       client: record.clientName,
       rep: record.rep,
       warehouse: record.warehouse,
@@ -81,7 +83,7 @@ export function PickupNoteDetailsPage({ pnId, onBack, onNavigateToSO, onNavigate
       createdBy: record.createdBy,
       createdDate: record.createdDate,
       status: record.status,
-      reason: "Return Delivery",
+      reason: (record as any).reason || "Return Delivery",
       comment: "",
       repConfirmed: record.repConfirmed || false,
       adminConfirmed: record.adminConfirmed || false,
@@ -100,8 +102,9 @@ export function PickupNoteDetailsPage({ pnId, onBack, onNavigateToSO, onNavigate
         id: record.id,
         sourceSOId: record.sourceSOId,
         sourceSO: record.sourceSONumber,
-        sourceDNs: record.sourceDNs.map(d => ({ ...d, itemsCount: d.itemsCount || 0 })),
-        invoiceNumber: record.invoiceNumber,
+        sourceInvoiceId: record.sourceInvoiceId,
+        sourceInvoice: record.sourceInvoiceNumber,
+        sourceDN: record.sourceDN ? { ...record.sourceDN, itemsCount: (record.sourceDN as any).itemsCount || 0 } : undefined,
         client: record.clientName,
         rep: record.rep,
         warehouse: record.warehouse,
@@ -110,7 +113,7 @@ export function PickupNoteDetailsPage({ pnId, onBack, onNavigateToSO, onNavigate
         createdBy: record.createdBy,
         createdDate: record.createdDate,
         status: record.status,
-        reason: "Return Delivery",
+        reason: (record as any).reason || "Return Delivery",
         comment: "",
         repConfirmed: record.repConfirmed || false,
         adminConfirmed: record.adminConfirmed || false,
@@ -202,15 +205,6 @@ export function PickupNoteDetailsPage({ pnId, onBack, onNavigateToSO, onNavigate
     }));
   };
 
-  const handleConditionChange = (itemId: string, condition: "Resellable" | "Damaged") => {
-    updatePn(prev => ({
-      ...prev,
-      items: prev.items.map(item =>
-        item.id === itemId ? { ...item, condition } : item
-      ),
-    }));
-  };
-
   const handleUnreserve = () => {
     updatePn(prev => ({
       ...prev,
@@ -279,9 +273,17 @@ export function PickupNoteDetailsPage({ pnId, onBack, onNavigateToSO, onNavigate
           <span className="text-gray-300 text-[18px] font-light select-none">|</span>
           <h1 className="text-[18px] font-semibold text-[#1a1a2e]">{pn.id}</h1>
         </div>
-        <Badge variant="outline" className={"rounded-md px-2.5 py-0.5 text-[11px] font-bold border   "}>
-          {status}
-        </Badge>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onNavigateToV2}
+            className="px-3 py-1.5 text-[12px] font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+          >
+            View V2
+          </button>
+          <Badge variant="outline" className={"rounded-md px-2.5 py-0.5 text-[11px] font-bold border   "}>
+            {status}
+          </Badge>
+        </div>
       </div>
 
       <div className="flex-1 overflow-auto">
@@ -388,38 +390,38 @@ export function PickupNoteDetailsPage({ pnId, onBack, onNavigateToSO, onNavigate
                 </h2>
               </div>
               <div className="p-5 flex-1 flex flex-col gap-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-1 font-semibold">Source Sales Order</p>
-                    {onNavigateToSO ? (
-                      <button onClick={() => onNavigateToSO(pn.sourceSOId)} className="text-[13px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline transition-colors">
+                <div>
+                  <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-1 font-semibold">Original Source</p>
+                  {pn.sourceSOId && pn.sourceSO ? (
+                    onNavigateToSO ? (
+                      <button onClick={() => onNavigateToSO(pn.sourceSOId!)} className="text-[13px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline transition-colors">
                         {pn.sourceSO}
                       </button>
                     ) : (
                       <p className="text-[13px] font-semibold text-indigo-600">{pn.sourceSO}</p>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-1 font-semibold">Invoice Reference</p>
-                    <p className="text-[13px] font-semibold text-gray-900">{pn.invoiceNumber}</p>
-                  </div>
+                    )
+                  ) : pn.sourceInvoice ? (
+                    <p className="text-[13px] font-semibold text-indigo-600">{pn.sourceInvoice}</p>
+                  ) : (
+                    <p className="text-[13px] text-gray-400">—</p>
+                  )}
                 </div>
                 
                 <div>
-                  <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-2 font-semibold">Parent Delivery Notes</p>
-                  <div className="space-y-2">
-                    {pn.sourceDNs.map(dn => (
-                      <div key={dn.id} className="flex items-center justify-between p-2.5 rounded-md border border-gray-100 bg-gray-50/50">
-                        <div className="flex items-center gap-2">
-                          <FileText className="w-4 h-4 text-indigo-400" />
-                          <button onClick={() => openTab({ type: "dn", id: dn.id, label: dn.number ?? dn.id })} className="text-[13px] font-semibold text-indigo-600 hover:underline">
-                            {dn.number}
-                          </button>
-                        </div>
-                        <span className="text-[12px] font-medium text-gray-500">{dn.itemsCount} items</span>
+                  <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-2 font-semibold">Source Delivery Note</p>
+                  {pn.sourceDN ? (
+                    <div className="flex items-center justify-between p-2.5 rounded-md border border-gray-100 bg-gray-50/50">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-indigo-400" />
+                        <button onClick={() => openTab({ type: "dn", id: pn.sourceDN!.id, label: pn.sourceDN!.number ?? pn.sourceDN!.id })} className="text-[13px] font-semibold text-indigo-600 hover:underline">
+                          {pn.sourceDN.number}
+                        </button>
                       </div>
-                    ))}
-                  </div>
+                      {pn.sourceDN.itemsCount > 0 && <span className="text-[12px] font-medium text-gray-500">{pn.sourceDN.itemsCount} items</span>}
+                    </div>
+                  ) : (
+                    <p className="text-[12px] text-gray-400">—</p>
+                  )}
                 </div>
                 {relatedTransfer && (
                   <div>
@@ -535,7 +537,6 @@ export function PickupNoteDetailsPage({ pnId, onBack, onNavigateToSO, onNavigate
                     <th className="text-left px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wide w-[30%]">Item</th>
                     <th className="text-right px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Delivered</th>
                     <th className="text-right px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Return Qty</th>
-                    <th className="text-left px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Return Condition</th>
                     <th className="text-center px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Status</th>
                   </tr>
                 </thead>
@@ -566,23 +567,6 @@ export function PickupNoteDetailsPage({ pnId, onBack, onNavigateToSO, onNavigate
                           ) : (
                             <span className="font-semibold text-indigo-700">
                               {item.returnQty} <span className="text-gray-400 font-normal text-[12px]">{item.unit}</span>
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-5 py-3.5">
-                          {status === "PENDING" ? (
-                            <select
-                              value={item.condition || ""}
-                              onChange={e => handleConditionChange(item.id, e.target.value as "Resellable" | "Damaged")}
-                              className="w-32 h-8 rounded-md border border-gray-200 text-[12px] bg-white outline-none focus:border-indigo-400"
-                            >
-                              <option value="" disabled>Select...</option>
-                              <option value="Resellable">Resellable</option>
-                              <option value="Damaged">Damaged</option>
-                            </select>
-                          ) : (
-                            <span className={"inline-flex items-center px-2 py-0.5 rounded-[4px] text-[11px] font-bold "}>
-                              {item.condition || "Unknown"}
                             </span>
                           )}
                         </td>
@@ -640,7 +624,7 @@ export function PickupNoteDetailsPage({ pnId, onBack, onNavigateToSO, onNavigate
                     <span className="text-[13px] font-bold text-gray-900">Sales Order Created</span>
                     <span className="text-[11px] text-gray-500">Apr 6, 2026</span>
                   </div>
-                  <p className="text-[12px] text-gray-600">Original order <span className="font-semibold">{pn.sourceSO}</span> placed by {pn.client}</p>
+                  <p className="text-[12px] text-gray-600">Original source <span className="font-semibold">{pn.sourceSO || pn.sourceInvoice || "—"}</span> placed by {pn.client}</p>
                 </div>
               </div>
 
@@ -653,7 +637,7 @@ export function PickupNoteDetailsPage({ pnId, onBack, onNavigateToSO, onNavigate
                     <span className="text-[13px] font-bold text-gray-900">Delivery Note Issued</span>
                     <span className="text-[11px] text-gray-500">Apr 7, 2026</span>
                   </div>
-                  <p className="text-[12px] text-gray-600">Shipped via {pn.sourceDNs[0]?.number}</p>
+                  <p className="text-[12px] text-gray-600">Shipped via {pn.sourceDN?.number}</p>
                 </div>
               </div>
 

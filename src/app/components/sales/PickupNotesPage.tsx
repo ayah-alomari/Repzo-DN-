@@ -81,7 +81,7 @@ export function PickupNotesPage({ onRNClick, onSOClick, onDNClick }: PickupNotes
         if (f.field === "Rep") return pn.rep.toLowerCase().includes(v);
         if (f.field === "Destination") return pn.destinationWarehouse.toLowerCase().includes(v);
         if (f.field === "Return Note Number") return pn.rnNumber.toLowerCase().includes(v);
-        if (f.field === "Source SO") return (pn.sourceSONumber ?? "").toLowerCase().includes(v);
+        if (f.field === "Original Source") return ((pn.sourceSONumber ?? pn.sourceInvoiceNumber ?? "")).toLowerCase().includes(v);
         if (f.field === "Client") return pn.clientName.toLowerCase().includes(v);
         if (f.field === "Date") return pn.createdDate.toLowerCase().includes(v);
         return true;
@@ -120,7 +120,7 @@ export function PickupNotesPage({ onRNClick, onSOClick, onDNClick }: PickupNotes
     const map: Record<string, () => string[]> = {
       'Rep':       () => pnList.map(p => p.rep),
       'Return Note Number': () => pnList.map(p => p.rnNumber),
-      'Source SO': () => pnList.map(p => p.sourceSONumber ?? ""),
+      'Original Source': () => pnList.map(p => p.sourceSONumber ?? p.sourceInvoiceNumber ?? ""),
       'Client':    () => pnList.map(p => p.clientName),
       'Date':      () => pnList.map(p => p.createdDate),
     };
@@ -168,7 +168,7 @@ export function PickupNotesPage({ onRNClick, onSOClick, onDNClick }: PickupNotes
                           <option value="Rep">Rep</option>
                           <option value="Destination">Destination</option>
                           <option value="Return Note Number">Return Note Number</option>
-                          <option value="Source SO">Source SO</option>
+                          <option value="Original Source">Original Source</option>
                           <option value="Client">Client</option>
                           <option value="Date">Date</option>
                         </select>
@@ -283,8 +283,8 @@ export function PickupNotesPage({ onRNClick, onSOClick, onDNClick }: PickupNotes
                     </div>
                   </TableHead>
                   <TableHead className="text-[11px] font-medium text-[#8b8b9e] uppercase tracking-wider whitespace-nowrap">FINANCIAL IMPACT</TableHead>
-                  <TableHead className="text-[11px] font-medium text-[#8b8b9e] uppercase tracking-wider whitespace-nowrap">SOURCE DELIVERY NOTE(S)</TableHead>
-                  <TableHead className="text-[11px] font-medium text-[#8b8b9e] uppercase tracking-wider whitespace-nowrap">SOURCE SO</TableHead>
+                  <TableHead className="text-[11px] font-medium text-[#8b8b9e] uppercase tracking-wider whitespace-nowrap">SOURCE DELIVERY NOTE</TableHead>
+                  <TableHead className="text-[11px] font-medium text-[#8b8b9e] uppercase tracking-wider whitespace-nowrap">ORIGINAL SOURCE</TableHead>
                   <TableHead
                     onClick={() => handleSort("Client")}
                     className="cursor-pointer select-none hover:bg-[#f5f5f7] transition-colors text-[11px] font-medium text-[#8b8b9e] uppercase tracking-wider whitespace-nowrap"
@@ -362,27 +362,29 @@ export function PickupNotesPage({ onRNClick, onSOClick, onDNClick }: PickupNotes
                     <TableCell onClick={() => onRNClick && onRNClick(pn.id)} className="font-semibold text-[#4f6ef7] hover:underline cursor-pointer">{pn.rnNumber}</TableCell>
                     <TableCell><StatusBadge status={pn.status} /></TableCell>
                     <TableCell>
-                      <div className="flex flex-col gap-1">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-[4px] text-[10px] font-bold w-fit ${pn.creditNoteStatus === 'Issued' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : pn.creditNoteStatus === 'Pending' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-gray-50 text-gray-600 border border-gray-200'}`}>
-                          {pn.creditNoteStatus === 'Issued' ? 'CN Issued' : pn.creditNoteStatus === 'Pending' ? 'CN Pending' : 'No CN'}
-                        </span>
-                        {(pn.invoicePaymentStatus === "Paid" || pn.invoicePaymentStatus === "Partially Paid") && (
-                          <span className="text-[10px] font-semibold text-red-600 flex items-center gap-1">
-                            <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                            Invoice {pn.invoicePaymentStatus}
-                          </span>
-                        )}
-                      </div>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-[4px] text-[10px] font-bold w-fit border ${
+                        pn.invoicePaymentStatus === "Paid" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                        pn.invoicePaymentStatus === "Partially Paid" ? "bg-amber-50 text-amber-700 border-amber-200" :
+                        pn.invoicePaymentStatus === "Invoiced Not Paid" ? "bg-red-50 text-red-600 border-red-200" :
+                        "bg-gray-50 text-gray-500 border-gray-200"
+                      }`}>
+                        {pn.invoicePaymentStatus}
+                      </span>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-0.5">
-                        {pn.sourceDNs.map(dn => (
-                          <button key={dn.id} onClick={() => onDNClick && onDNClick(dn.id)} className="text-[12px] font-medium text-[#4f6ef7] hover:underline text-left">{dn.number}</button>
-                        ))}
-                        {pn.sourceDNs.length > 1 && <span className="text-[9px] text-indigo-400 font-medium">Multi-delivery note</span>}
+                        {pn.sourceDN ? (
+                          <button onClick={() => onDNClick && onDNClick(pn.sourceDN!.id)} className="text-[12px] font-medium text-[#4f6ef7] hover:underline text-left">{pn.sourceDN.number}</button>
+                        ) : <span className="text-[12px] text-gray-400">—</span>}
                       </div>
                     </TableCell>
-                    <TableCell onClick={() => onSOClick && onSOClick(pn.sourceSOId)} className="text-[#4f6ef7] hover:underline cursor-pointer text-[12px] font-medium">{pn.sourceSONumber}</TableCell>
+                    <TableCell>
+                      {pn.sourceSOId && pn.sourceSONumber ? (
+                        <button onClick={() => onSOClick && onSOClick(pn.sourceSOId!)} className="text-[12px] font-medium text-[#4f6ef7] hover:underline">{pn.sourceSONumber}</button>
+                      ) : pn.sourceInvoiceNumber ? (
+                        <span className="text-[12px] font-medium text-[#4f6ef7]">{pn.sourceInvoiceNumber}</span>
+                      ) : <span className="text-[12px] text-gray-400">—</span>}
+                    </TableCell>
                     <TableCell>{pn.clientName}</TableCell>
                     <TableCell className="font-medium text-[#1a1a2e]">{pn.rep}</TableCell>
                     <TableCell><DestBadge dest={pn.destinationWarehouse} rep={pn.destinationRep} /></TableCell>

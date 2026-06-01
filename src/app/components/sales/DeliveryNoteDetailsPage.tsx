@@ -1,9 +1,144 @@
 import React, { useState, useEffect } from "react";
-import { ArrowLeft, Check, CheckCircle2, XCircle, Clock, Truck, Package, ArrowRight, ExternalLink, ArrowLeftRight, X, Pencil } from "lucide-react";
+import { ArrowLeft, Check, CheckCircle2, XCircle, Clock, Truck, Package, ArrowRight, ExternalLink, ArrowLeftRight, X, Pencil, RotateCcw, ChevronDown } from "lucide-react";
 import { TransferDetailsPage } from "./TransferDetailsPage";
 import { Badge } from "../ui/badge";
 import { useAppData } from "../../context/AppDataContext";
 import { EditDeliveryNoteModal } from "./EditDeliveryNoteModal";
+
+const RETURN_REASONS = [
+  "Customer refused delivery",
+  "Damaged goods",
+  "Wrong items delivered",
+  "Excess quantity",
+  "Quality issues",
+  "Product recall",
+  "Other",
+] as const;
+
+function ReturnDeliveryModal({
+  isOpen,
+  dnId,
+  onClose,
+  onConfirm,
+}: {
+  isOpen: boolean;
+  dnId: string;
+  onClose: () => void;
+  onConfirm: (reason: string, navigate: boolean) => void;
+}) {
+  const [reason, setReason] = useState("");
+  const [navigate, setNavigate] = useState(false);
+
+  const handleConfirm = () => {
+    if (!reason) return;
+    onConfirm(reason, navigate);
+    setReason("");
+    setNavigate(false);
+  };
+
+  const handleClose = () => {
+    setReason("");
+    setNavigate(false);
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-150">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-gray-50/50">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-red-50 rounded-lg">
+              <RotateCcw className="w-4 h-4 text-red-500" />
+            </div>
+            <div>
+              <h3 className="text-[15px] font-bold text-gray-900">Return Delivery</h3>
+              <p className="text-[11px] text-gray-400">{dnId} — a return note will be created</p>
+            </div>
+          </div>
+          <button
+            onClick={handleClose}
+            className="p-1.5 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-5 py-5 space-y-4">
+          <p className="text-[13px] text-gray-500 leading-relaxed">
+            This will create a <strong className="text-gray-700">Return Note</strong> for this delivery.
+            The return must be confirmed by admin before items are marked as returned.
+          </p>
+
+          <div className="space-y-1.5">
+            <label className="text-[12px] font-semibold text-gray-700">Return Reason</label>
+            <div className="relative">
+              <select
+                value={reason}
+                onChange={e => setReason(e.target.value)}
+                className="w-full h-9 pl-3 pr-8 border border-gray-200 rounded-lg text-[13px] text-gray-800 bg-white outline-none focus:border-indigo-400 appearance-none"
+              >
+                <option value="" disabled>Select a reason…</option>
+                {RETURN_REASONS.map(r => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-2.5 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
+
+          {reason === "Other" && (
+            <div className="space-y-1.5">
+              <label className="text-[12px] font-semibold text-gray-700">
+                Details <span className="font-normal text-gray-400">(optional)</span>
+              </label>
+              <textarea
+                placeholder="Describe the reason…"
+                rows={2}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-[13px] text-gray-800 bg-white outline-none focus:border-indigo-400 resize-none"
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Navigate checkbox */}
+        <div className="px-5 pb-5">
+          <label className="flex items-center gap-2.5 cursor-pointer select-none w-fit">
+            <input
+              type="checkbox"
+              checked={navigate}
+              onChange={e => setNavigate(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300 accent-[#1a1a2e] cursor-pointer"
+            />
+            <span className="text-[13px] text-gray-600">Navigate to return note after creating</span>
+          </label>
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex justify-end gap-2">
+          <button
+            onClick={handleClose}
+            className="px-4 py-2 text-[13px] font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={!reason}
+            className="flex items-center gap-1.5 px-4 py-2 text-[13px] font-semibold text-white bg-[#1a1a2e] rounded-lg hover:bg-[#2a2a3e] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <RotateCcw className="w-3.5 h-3.5" /> Create Return Note
+          </button>
+        </div>
+
+      </div>
+    </div>
+  );
+}
 
 const getRepVanWarehouse = (rep: string) => `${rep} Van Warehouse`;
 
@@ -109,7 +244,7 @@ export function DeliveryNoteDetailsPage({ dnId, onBack, onNavigateToSO, onNaviga
   const {
     dnList, setDnList,
     orderItems,
-    setPnList,
+    pnList, setPnList,
     transferList, setTransferList,
     salesOrders, setSalesOrders,
     reservations, setReservations,
@@ -121,6 +256,7 @@ export function DeliveryNoteDetailsPage({ dnId, onBack, onNavigateToSO, onNaviga
   const [dn, setDn] = React.useState<any>(record || null);
   const [showUnloadPrompt, setShowUnloadPrompt] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
 
   // Tab state must live before any early return (Rules of Hooks)
   const SELF_TYPE = "dn";
@@ -191,6 +327,8 @@ export function DeliveryNoteDetailsPage({ dnId, onBack, onNavigateToSO, onNaviga
   };
 
   const relatedTransfers = transferList.filter(t => t.sourceDNId === dn.id || t.sourceDNId === dn.dnNumber);
+  const linkedRNs = pnList.filter(p => p.sourceDN?.id === dn.id || p.sourceDN?.id === dn.dnNumber);
+  const hasActiveRN = linkedRNs.some(rn => rn.status !== "CANCELED");
 
   const status: DNStatus = dn.status;
   const adminDone = dn.adminTransfer === "DONE";
@@ -345,7 +483,7 @@ export function DeliveryNoteDetailsPage({ dnId, onBack, onNavigateToSO, onNaviga
     if (onNavigateToUnload) setShowUnloadPrompt(true);
   };
 
-  const handleReturnDelivery = () => {
+  const handleReturnDelivery = (reason: string, navigate: boolean) => {
     if (!dn) return;
 
     const rnItems = dnItems.map((item: any) => ({
@@ -359,15 +497,14 @@ export function DeliveryNoteDetailsPage({ dnId, onBack, onNavigateToSO, onNaviga
       condition: "Resellable" as const,
     }));
 
-    const newRNId = `RN-${Math.floor(Math.random() * 1000)}`;
+    const newRNId = `RN-${Math.floor(Math.random() * 9000 + 1000)}`;
     const newRN = {
       id: newRNId,
       rnNumber: newRNId,
       status: "PENDING" as const,
-      sourceSOId: dn.sourceSOId || "—",
-      sourceSONumber: dn.sourceSONumber || "—",
-      sourceDNs: [{ id: dn.id, number: dn.id, itemsCount: (dn.itemsData || dn.items || []).length }],
-      invoiceNumber: "—",
+      ...(dn.sourceSOId ? { sourceSOId: dn.sourceSOId, sourceSONumber: dn.sourceSONumber } : {}),
+      ...(dn.sourceInvoiceId ? { sourceInvoiceId: dn.sourceInvoiceId, sourceInvoiceNumber: dn.sourceInvoiceNumber } : {}),
+      sourceDN: { id: dn.id, number: dn.id },
       clientName: dn.clientName || "—",
       rep: dn.rep || "—",
       createdBy: "Admin",
@@ -382,10 +519,12 @@ export function DeliveryNoteDetailsPage({ dnId, onBack, onNavigateToSO, onNaviga
       invoicePaymentStatus: "Unpaid" as const,
       repConfirmed: false,
       adminConfirmed: false,
+      reason,
       itemsData: rnItems,
     };
     setPnList(prev => [newRN, ...prev]);
-    onNavigateToPN?.(newRNId);
+    setIsReturnModalOpen(false);
+    if (navigate) onNavigateToPN?.(newRNId);
   };
 
   return (
@@ -450,11 +589,27 @@ export function DeliveryNoteDetailsPage({ dnId, onBack, onNavigateToSO, onNaviga
               <Pencil className="w-3.5 h-3.5" /> Edit
             </button>
           )}
-          {status === "APPROVED" && (
+          {linkedRNs.length > 0 && linkedRNs.map(rn => (
             <button
-              onClick={handleReturnDelivery}
+              key={rn.id}
+              onClick={() => onNavigateToPN?.(rn.id)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 text-[12px] font-semibold rounded-[4px] transition-colors"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              {rn.rnNumber ?? rn.id}
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ml-0.5 ${
+                rn.status === "RECEIVED" ? "bg-green-50 text-green-700 border-green-200" :
+                rn.status === "CANCELED" ? "bg-red-50 text-red-600 border-red-200" :
+                rn.status === "PROCESSING" ? "bg-blue-50 text-blue-700 border-blue-200" :
+                "bg-amber-100 text-amber-800 border-amber-300"
+              }`}>{rn.status}</span>
+            </button>
+          ))}
+          {status === "APPROVED" && !hasActiveRN && (
+            <button
+              onClick={() => setIsReturnModalOpen(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 text-[12px] font-semibold rounded-[4px] transition-colors">
-              Return Delivery
+              <RotateCcw className="w-3.5 h-3.5" /> Return Delivery
             </button>
           )}
           <Badge variant="outline" className={`rounded-md px-2.5 py-0.5 text-[11px] font-bold border ${statusColors.bg} ${statusColors.text} ${statusColors.border}`}>
@@ -574,6 +729,43 @@ export function DeliveryNoteDetailsPage({ dnId, onBack, onNavigateToSO, onNaviga
                 })}
               </div>
             </div>
+
+            {/* ── Linked return notes ── */}
+            {linkedRNs.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-dashed border-gray-200">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Return Notes</p>
+                <div className="flex flex-col gap-1.5">
+                  {linkedRNs.map(rn => (
+                    <div key={rn.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-amber-50 border border-amber-100">
+                      <div className="flex items-center gap-2">
+                        <RotateCcw className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                        <span className="text-[12px] font-bold text-amber-800">{rn.rnNumber ?? rn.id}</span>
+                        <span className="text-[11px] text-amber-600">{rn.createdDate}</span>
+                        {(rn as any).reason && (
+                          <span className="text-[11px] text-amber-500 italic">· {(rn as any).reason}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                          rn.status === "RECEIVED"   ? "bg-green-50 text-green-700 border-green-200" :
+                          rn.status === "CANCELED"   ? "bg-red-50 text-red-600 border-red-200" :
+                          rn.status === "PROCESSING" ? "bg-blue-50 text-blue-700 border-blue-200" :
+                                                       "bg-amber-100 text-amber-800 border-amber-300"
+                        }`}>{rn.status}</span>
+                        {onNavigateToPN && (
+                          <button
+                            onClick={() => onNavigateToPN(rn.id)}
+                            className="text-[11px] font-semibold text-indigo-600 hover:underline flex items-center gap-1"
+                          >
+                            View <ExternalLink className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
           </div>
 
@@ -757,6 +949,13 @@ export function DeliveryNoteDetailsPage({ dnId, onBack, onNavigateToSO, onNaviga
         soItems={salesOrders.find(so => so.id === dn?.sourceSOId)?.itemsData ?? []}
         reps={["Ahmad Alshaikh", "REP khaled", "REP Ahmad Abudre"]}
         warehouses={["Main Branch", "Zarqaa Warehouse", "Dream Warehouse", "Khald Warehouse", "Local Maram Van Warehouse", "Van مستودع الكوم"]}
+      />
+
+      <ReturnDeliveryModal
+        isOpen={isReturnModalOpen}
+        dnId={dn?.dnNumber ?? dn?.id ?? ""}
+        onClose={() => setIsReturnModalOpen(false)}
+        onConfirm={handleReturnDelivery}
       />
     </div>
   );
