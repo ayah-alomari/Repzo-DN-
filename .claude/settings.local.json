@@ -9,7 +9,19 @@
       "Bash(node_modules/.bin/tsc --noEmit --skipLibCheck)",
       "Bash(python3 -c ':*)",
       "Bash(curl -s \"http://localhost:5175/src/app/components/planogram/PlanogramDesigner.tsx\" -o /dev/null -w \"%{http_code}\")",
-      "Bash(node_modules/.bin/tsc --noEmit)"
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(gh api *)",
+      "WebFetch(domain:api.github.com)",
+      "PowerShell(git clone https://github.com/nextlevelbuilder/ui-ux-pro-max-skill.git \"$env:TEMP\\\\ui-ux-pro-max-skill\" 2>&1)",
+      "PowerShell(python --version 2>&1)",
+      "PowerShell(python3 --version 2>&1)",
+      "PowerShell(& node_modules\\\\.bin\\\\tsc --noEmit 2>&1)",
+      "Bash(node node_modules/typescript/bin/tsc --noEmit)",
+      "PowerShell(npx tsc --noEmit 2>&1)",
+      "PowerShell(npx --yes typescript tsc --noEmit 2>&1)",
+      "PowerShell(node_modules\\\\.bin\\\\tsc --noEmit 2>&1)",
+      "PowerShell(& \".\\\\node_modules\\\\.bin\\\\tsc.cmd\" --noEmit 2>&1)",
+      "PowerShell(& \"C:\\\\Users\\\\ayahr\\\\projects\\\\enhance-dashboard-12-04-2026\\\\node_modules\\\\.bin\\\\tsc.cmd\" --noEmit 2>&1)"
     ]
   }
 }

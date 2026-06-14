@@ -1,5 +1,4 @@
 import {
-  FileText,
   RotateCcw,
   Truck,
   CheckCircle2,
@@ -112,7 +111,7 @@ export function ReturnNoteLifeCyclePage({ onNavigate }: { onNavigate?: (route: s
           <div>
             <h1 className="text-[22px] font-bold text-[#1a1a2e]">Return Note Life Cycle</h1>
             <p className="text-[13px] text-[#8b8b9e] mt-0.5">
-              How a return note is created from an invoice and items are returned to stock
+              How a return note is created from a delivered DN and items are returned to stock
             </p>
           </div>
           <button
@@ -130,11 +129,10 @@ export function ReturnNoteLifeCyclePage({ onNavigate }: { onNavigate?: (route: s
         {/* Diagram */}
         <div className="bg-white rounded-2xl border border-[#e8e8ec] shadow-sm px-10 py-10 mb-5">
           <h2 className="text-[15px] font-bold text-[#1a1a2e] mb-2 tracking-tight">
-            Return note — from invoice to items returned
+            Return note — from delivered DN to items returned
           </h2>
           <p className="text-[12px] text-gray-400 mb-8">
-            A return note is created from an invoice to reverse delivered items.
-            The rep collects the items on the mobile app, and admin confirms the return to update inventory.
+            A return note is triggered by a delivered DN. The rep collects the items on the mobile app, and admin confirms the return to update inventory.
           </p>
 
           {/*
@@ -153,9 +151,9 @@ export function ReturnNoteLifeCyclePage({ onNavigate }: { onNavigate?: (route: s
           >
             {/* Row 1 */}
             <div style={{ gridColumn: "1", gridRow: "1" }}>
-              <FlowNode color="blue" label="Invoice" icon={FileText} actor="admin" grow
-                onClick={() => onNavigate?.("invoice-life-cycle")}
-                note="see invoice life cycle"
+              <FlowNode color="blue" label="Delivered DN" icon={Truck} actor="admin" grow
+                onClick={() => onNavigate?.("dn-life-cycle")}
+                note="see DN life cycle"
               />
             </div>
             <div style={{ gridColumn: "2", gridRow: "1" }} className="flex items-center">
@@ -230,7 +228,7 @@ export function ReturnNoteLifeCyclePage({ onNavigate }: { onNavigate?: (route: s
               Return Note Rules
             </h3>
             <ul className="space-y-3">
-              <Rule text="A return note can only be created from an existing invoice" />
+              <Rule text="A return note is created from a delivered delivery note" />
               <Rule text="Partial returns are supported — not all items need to be returned" />
               <Rule text="The rep confirms the item pickup on the mobile app" />
               <Rule text="Admin must confirm the return before stock is updated" />
@@ -246,8 +244,8 @@ export function ReturnNoteLifeCyclePage({ onNavigate }: { onNavigate?: (route: s
               <Rule text="Returned items go back to the warehouse selected at return confirmation" />
               <Rule text="Stock is updated automatically once admin confirms the return" />
               <Rule text="A confirmed return cannot be reversed — create a new invoice if needed" />
-              <Rule text="Return notes do not automatically release reservations on the original invoice" />
-              <Rule text="Multiple return notes can be created for the same invoice" />
+              <Rule text="The DN's original source (SO or invoice) is recorded for reference only" />
+              <Rule text="Only one active return note can exist per DN at a time" />
             </ul>
           </div>
         </div>

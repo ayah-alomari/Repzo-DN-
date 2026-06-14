@@ -16,6 +16,7 @@ import { PickupNoteDetailsPage as ReturnNoteDetailsPage } from "./components/sal
 import { PickupNoteDetailsPageV2 as ReturnNoteDetailsPageV2 } from "./components/sales/PickupNoteDetailsPageV2";
 import { InvoicesPage } from "./components/sales/InvoicesPage";
 import { InvoiceDetailsPage } from "./components/sales/InvoiceDetailsPage";
+import { InvoiceDetailsV2 } from "./components/sales/InvoiceDetailsV2";
 import { CreateSalesOrderPage } from "./components/sales/CreateSalesOrderPage";
 import { CreateInvoicePage } from "./components/sales/CreateInvoicePage";
 import ReservationDetailsPage from "./components/sales/ReservationDetailsPage";
@@ -23,6 +24,7 @@ import { ReservationDetailsPageV2 } from "./components/sales/ReservationDetailsP
 import { TransfersPage } from "./components/sales/TransfersPage";
 import { TransferDetailsPage } from "./components/sales/TransferDetailsPage";
 import { SettingsPage } from "./components/SettingsPage";
+import { SalesOrderDetailsV2 } from "./components/sales/SalesOrderDetailsV2";
 import { SOLifeCyclePage } from "./components/lifecycle/SOLifeCyclePage";
 import { SOLifeCyclePageV2 } from "./components/lifecycle/SOLifeCyclePageV2";
 import { DNLifeCyclePage } from "./components/lifecycle/DNLifeCyclePage";
@@ -80,6 +82,16 @@ function AppInner() {
           onNavigateToDN={(dnId) => { setSelectedDNId(dnId); setDnBackRoute("sales-order-details"); setCurrentRoute("delivery-note-details"); }}
           onNavigateToInvoice={(invoiceId) => { setSelectedInvoiceId(invoiceId); setCurrentRoute("invoice-details"); }}
           onNavigateToTransfer={(id) => { setSelectedTransferId(id); setCurrentRoute("transfer-details"); }}
+          onViewV2={() => setCurrentRoute("sales-order-details-v2")}
+        />
+      ) : currentRoute === "sales-order-details-v2" ? (
+        <SalesOrderDetailsV2
+          orderId={selectedOrderId}
+          onBack={() => setCurrentRoute("sales-orders")}
+          onNavigateToDN={(dnId) => { setSelectedDNId(dnId); setDnBackRoute("sales-order-details-v2"); setCurrentRoute("delivery-note-details"); }}
+          onNavigateToInvoice={(invoiceId) => { setSelectedInvoiceId(invoiceId); setCurrentRoute("invoice-details"); }}
+          onNavigateToTransfer={(id) => { setSelectedTransferId(id); setCurrentRoute("transfer-details"); }}
+          onViewV1={() => setCurrentRoute("sales-order-details")}
         />
       ) : currentRoute === "create-sales-order" ? (
         <CreateSalesOrderPage
@@ -128,7 +140,6 @@ function AppInner() {
           pnId={selectedPNId}
           onBack={() => setCurrentRoute("pickup-note")}
           onNavigateToSO={(soId) => { setSelectedOrderId(soId); setCurrentRoute("sales-order-details"); }}
-          onNavigateToDN={(dnId) => { setSelectedDNId(dnId); setDnBackRoute("pickup-note-details"); setCurrentRoute("delivery-note-details"); }}
           onNavigateToTransfer={(id) => { setSelectedTransferId(id); setCurrentRoute("transfer-details"); }}
           onNavigateToV2={() => setCurrentRoute("pickup-note-details-v2")}
         />
@@ -158,6 +169,16 @@ function AppInner() {
           onNavigateToSO={(soId) => { setSelectedOrderId(soId); setCurrentRoute("sales-order-details"); }}
           onNavigateToDN={(dnId) => { setSelectedDNId(dnId); setDnBackRoute("invoice-details"); setCurrentRoute("delivery-note-details"); }}
           onCreateReturnNote={(invoiceId) => { setSelectedPNId(invoiceId); setCurrentRoute("pickup-note-details"); }}
+          onViewV2={() => { setCurrentRoute("invoice-details-v2"); }}
+        />
+      ) : currentRoute === "invoice-details-v2" ? (
+        <InvoiceDetailsV2
+          invoiceId={selectedInvoiceId}
+          onBack={() => setCurrentRoute("invoices-inventory")}
+          onNavigateToSO={(soId) => { setSelectedOrderId(soId); setCurrentRoute("sales-order-details"); }}
+          onNavigateToDN={(dnId) => { setSelectedDNId(dnId); setDnBackRoute("invoice-details-v2"); setCurrentRoute("delivery-note-details"); }}
+          onNavigateToTransfer={(id) => { setSelectedTransferId(id); setCurrentRoute("transfer-details"); }}
+          onViewV1={() => setCurrentRoute("invoice-details")}
         />
       ) : currentRoute === "transfers" ? (
         <TransfersPage

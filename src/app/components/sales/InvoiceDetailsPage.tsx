@@ -32,6 +32,7 @@ interface InvoiceDetailsPageProps {
   onNavigateToSO?: (soId: string) => void;
   onNavigateToDN?: (dnId: string) => void;
   onCreateReturnNote?: (invoiceId: string) => void;
+  onViewV2?: () => void;
 }
 
 interface InvoiceItem {
@@ -102,13 +103,15 @@ export function InvoiceDetailsPage({
   onBack,
   onNavigateToSO,
   onNavigateToDN,
+  onViewV2,
 }: InvoiceDetailsPageProps) {
   const {
     invoices, setInvoices,
     setDnList, dnList,
     reservations, setReservations,
     reservationAuditLog, setReservationAuditLog,
-    setTransferList
+    setTransferList,
+    salesOrders,
   } = useAppData();
   const parseJOD = (s: string) => parseFloat(s.replace(/[^0-9.]/g, "")) || 0;
 
@@ -148,19 +151,24 @@ export function InvoiceDetailsPage({
           warehouse: d.warehouse,
           date: d.createdDate,
         })),
-      items: record.itemsData ? record.itemsData.map(i => ({
-        id: i.id,
-        name: i.name,
-        sku: i.sku,
-        unit: i.unit,
-        variantName: "-",
-        orderedQty: i.totalQty,
-        deliveredQty: i.deliveredQty,
-        returnedQty: 0,
-        price: i.price,
-        discount: 0,
-        total: i.price * i.totalQty,
-      })) : [],
+      items: (() => {
+        const invItems = record.itemsData && record.itemsData.length > 0
+          ? record.itemsData
+          : salesOrders.find(so => so.id === record.sourceSOId)?.itemsData ?? [];
+        return invItems.map(i => ({
+          id: i.id,
+          name: i.name,
+          sku: i.sku,
+          unit: i.unit,
+          variantName: "-",
+          orderedQty: i.totalQty,
+          deliveredQty: i.deliveredQty,
+          returnedQty: 0,
+          price: i.price,
+          discount: 0,
+          total: i.price * i.totalQty,
+        }));
+      })(),
       reservations: (record.reservedItems ?? []).map(r => ({
         itemId:      r.itemId,
         itemName:    r.itemName,
@@ -539,6 +547,11 @@ export function InvoiceDetailsPage({
           <button className="p-1.5 border border-[#e8e8ec] rounded-md text-[#4a4a5a] hover:bg-[#f7f7f9] transition-colors">
             <MoreVertical className="w-4 h-4" />
           </button>
+          {onViewV2 && (
+            <button onClick={onViewV2} className="px-3 py-1.5 text-[12px] font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors">
+              View V2
+            </button>
+          )}
         </div>
       </div>
 

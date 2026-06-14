@@ -51,12 +51,13 @@ interface SalesOrderDetailsProps {
   onNavigateToDN?: (dnId: string) => void;
   onNavigateToInvoice?: (invoiceId: string) => void;
   onNavigateToTransfer?: (transferId: string) => void;
+  onViewV2?: () => void;
 }
 
 
 const getRepVanWarehouse = (rep: string) => `${rep} Van Warehouse`;
 
-export function SalesOrderDetails({ orderId, onBack, onNavigateToDeliveryNotes, onNavigateToDN, onNavigateToInvoice, onNavigateToTransfer }: SalesOrderDetailsProps) {
+export function SalesOrderDetails({ orderId, onBack, onNavigateToDeliveryNotes, onNavigateToDN, onNavigateToInvoice, onNavigateToTransfer, onViewV2 }: SalesOrderDetailsProps) {
   const {
     orderItems, setOrderItems,
     deliveryNotes, setDeliveryNotes,
@@ -1051,6 +1052,14 @@ export function SalesOrderDetails({ orderId, onBack, onNavigateToDeliveryNotes, 
             <HistoryIcon className="w-3.5 h-3.5" /> History
           </button>
           <button className="text-[#4a4a5a] hover:text-[#1a1a2e]"><Settings className="w-4 h-4" /></button>
+          {onViewV2 && (
+            <button
+              onClick={onViewV2}
+              className="px-3 py-1.5 text-[12px] font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors"
+            >
+              View V2
+            </button>
+          )}
         </div>
       </div>
 
