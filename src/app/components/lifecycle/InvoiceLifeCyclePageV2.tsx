@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Receipt, Lock, LockOpen, Truck,
   PackageCheck, Info, CheckCircle,
@@ -96,6 +97,7 @@ function Rule({ text }: { text: string }) {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export function InvoiceLifeCyclePageV2({ onNavigate }: { onNavigate?: (route: string) => void }) {
+  const [rulesTab, setRulesTab] = useState<"delivery" | "res">("delivery");
   return (
     <div className="flex-1 flex flex-col min-w-0 bg-[#f7f7f9] overflow-hidden">
       <TopNav customTabs={LIFECYCLE_TABS} activeRoute="invoice-life-cycle-v2" onNavigate={onNavigate} />
@@ -162,18 +164,35 @@ export function InvoiceLifeCyclePageV2({ onNavigate }: { onNavigate?: (route: st
 
         </div>
 
-        {/* Rules */}
-        <div className="grid grid-cols-2 gap-5">
-          <div className="bg-white rounded-xl border border-[#e8e8ec] p-6">
-            <h3 className="text-[13px] font-bold text-[#1a1a2e] mb-4 flex items-center gap-2">
+        {/* Rules — tabbed card */}
+        <div className="bg-white rounded-xl border border-[#e8e8ec] p-6">
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="text-[13px] font-bold text-[#1a1a2e] flex items-center gap-2">
               <Info className="w-4 h-4 text-indigo-400" />
-              Invoice — Delivery Rules
+              Invoice Rules
             </h3>
-            <ul className="space-y-3">
-              <li className="flex items-start gap-2 text-[12px] text-[#4a4a5a] leading-relaxed">
+            <div className="flex items-center gap-1 bg-[#f5f5f7] rounded-lg p-1">
+              <button
+                onClick={() => setRulesTab("delivery")}
+                className={`px-3 py-1.5 rounded-md text-[12px] font-semibold transition-all cursor-pointer ${rulesTab === "delivery" ? "bg-[#1a1a2e] text-white shadow-sm" : "text-gray-400 hover:text-gray-600"}`}
+              >
+                Delivery · 6
+              </button>
+              <button
+                onClick={() => setRulesTab("res")}
+                className={`px-3 py-1.5 rounded-md text-[12px] font-semibold transition-all cursor-pointer ${rulesTab === "res" ? "bg-[#1a1a2e] text-white shadow-sm" : "text-gray-400 hover:text-gray-600"}`}
+              >
+                Reservation · 5
+              </button>
+            </div>
+          </div>
+
+          {rulesTab === "delivery" && (
+            <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+              <li className="flex items-start gap-2 text-[12px] text-[#4a4a5a] leading-relaxed list-none">
                 <CheckCircle className="w-3.5 h-3.5 text-indigo-400 mt-0.5 shrink-0" />
                 <span>Invoice statement (Transactional, Non-transactional) is affected by{" "}
-                  <button onClick={() => onNavigate?.("settings")} className="text-indigo-500 underline font-semibold hover:text-indigo-700 cursor-pointer">Invoice &amp; Inventory configuration</button>.
+                  <button onClick={() => onNavigate?.("settings")} className="text-[12px] text-indigo-500 underline font-semibold hover:text-indigo-700 cursor-pointer">Invoice &amp; Inventory configuration</button>.
                 </span>
               </li>
               <Rule text="The delivery note cycle handles the physical movement of goods" />
@@ -181,26 +200,23 @@ export function InvoiceLifeCyclePageV2({ onNavigate }: { onNavigate?: (route: st
               <Rule text="If the invoice was set as Non-transactional, it must go through the DN cycle to deliver" />
               <Rule text="Multiple delivery notes can be created for a single invoice" />
               <Rule text="Partial invoicing is not supported for multiple delivery notes" />
-            </ul>
-          </div>
-          <div className="bg-white rounded-xl border border-[#e8e8ec] p-6">
-            <h3 className="text-[13px] font-bold text-[#1a1a2e] mb-4 flex items-center gap-2">
-              <Info className="w-4 h-4 text-amber-400" />
-              Invoice — Reservation Rules
-            </h3>
-            <ul className="space-y-3">
-              <li className="flex items-start gap-2 text-[12px] text-[#4a4a5a] leading-relaxed">
+            </div>
+          )}
+
+          {rulesTab === "res" && (
+            <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+              <li className="flex items-start gap-2 text-[12px] text-[#4a4a5a] leading-relaxed list-none">
                 <CheckCircle className="w-3.5 h-3.5 text-indigo-400 mt-0.5 shrink-0" />
                 <span>Reservations are controlled by a setting with two modes: Flexible and Strict. You can adjust this in{" "}
-                  <button onClick={() => onNavigate?.("settings")} className="text-indigo-500 underline font-semibold hover:text-indigo-700 cursor-pointer">Reservation settings</button>.
+                  <button onClick={() => onNavigate?.("settings")} className="text-[12px] text-indigo-500 underline font-semibold hover:text-indigo-700 cursor-pointer">Reservation settings</button>.
                 </span>
               </li>
               <Rule text="In Flexible mode, reserving items is optional — you can create an invoice with or without a reservation" />
               <Rule text="In Strict mode, reserving is required — creating a non-transactional invoice also reserves its items in the same step" />
               <Rule text="If a strict reservation was cancelled, the invoice asks you to reserve again before continuing to create delivery notes" />
               <Rule text="Negative reservations, when enabled, let you reserve quantities beyond available stock; when disabled, you can only reserve what's in stock" />
-            </ul>
-          </div>
+            </div>
+          )}
         </div>
 
         <div className="h-8" />

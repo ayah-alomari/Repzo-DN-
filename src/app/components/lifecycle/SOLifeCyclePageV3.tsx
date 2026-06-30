@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   FileText, CheckCircle2, Lock, LockOpen,
   Truck, PackageCheck, Receipt, XCircle,
@@ -122,6 +123,7 @@ function Rule({ text }: { text: string }) {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export function SOLifeCyclePageV3({ onNavigate }: { onNavigate?: (route: string) => void }) {
+  const [rulesTab, setRulesTab] = useState<"dn" | "res">("dn");
   return (
     <div className="flex-1 flex flex-col min-w-0 bg-[#f7f7f9] overflow-hidden">
       <TopNav customTabs={LIFECYCLE_TABS} activeRoute="so-life-cycle-v3" onNavigate={onNavigate} />
@@ -171,11 +173,6 @@ export function SOLifeCyclePageV3({ onNavigate }: { onNavigate?: (route: string)
               <Node color="amber" label="Items Reserved" icon={Lock} />
               <Or />
               <Node color="amber" label="No Reservation" icon={LockOpen} />
-              <p className="text-[10px] text-gray-400 leading-relaxed pt-1 border-t border-dashed border-gray-100">
-                Controlled by the <strong className="text-gray-500">Reservation Module</strong> setting.
-                When enabled, stock must be reserved before or during invoicing.
-                When disabled, orders proceed without reservation.
-              </p>
             </Stage>
 
             <StageChevron />
@@ -219,30 +216,44 @@ export function SOLifeCyclePageV3({ onNavigate }: { onNavigate?: (route: string)
           </div>
         </div>
 
-        {/* Rules */}
-        <div className="space-y-5">
-          <div className="bg-white rounded-xl border border-[#e8e8ec] p-6">
-            <h3 className="text-[13px] font-bold text-[#1a1a2e] mb-4 flex items-center gap-2">
+        {/* Rules — tabbed card */}
+        <div className="bg-white rounded-xl border border-[#e8e8ec] p-6">
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="text-[13px] font-bold text-[#1a1a2e] flex items-center gap-2">
               <Info className="w-4 h-4 text-indigo-400" />
-              Sales Orders — Delivery Note Rules
+              Sales Order Rules
             </h3>
-            <ul className="space-y-3">
+            <div className="flex items-center gap-1 bg-[#f5f5f7] rounded-lg p-1">
+              <button
+                onClick={() => setRulesTab("dn")}
+                className={`px-3 py-1.5 rounded-md text-[12px] font-semibold transition-all cursor-pointer ${rulesTab === "dn" ? "bg-[#1a1a2e] text-white shadow-sm" : "text-gray-400 hover:text-gray-600"}`}
+              >
+                Delivery note · 4
+              </button>
+              <button
+                onClick={() => setRulesTab("res")}
+                className={`px-3 py-1.5 rounded-md text-[12px] font-semibold transition-all cursor-pointer ${rulesTab === "res" ? "bg-[#1a1a2e] text-white shadow-sm" : "text-gray-400 hover:text-gray-600"}`}
+              >
+                Reservation · 8
+              </button>
+            </div>
+          </div>
+
+          {rulesTab === "dn" && (
+            <div className="grid grid-cols-2 gap-x-8 gap-y-3">
               <Rule text="A delivery note can only be created after the sales order is approved" />
               <Rule text="Multiple delivery notes can be created for a single sales order" />
               <Rule text="One delivery note can be created at a time" />
               <Rule text="Converting to invoice locks the delivery note actions on sales orders; status becomes Invoiced" />
-            </ul>
-          </div>
-          <div className="bg-white rounded-xl border border-[#e8e8ec] p-6">
-            <h3 className="text-[13px] font-bold text-[#1a1a2e] mb-4 flex items-center gap-2">
-              <Info className="w-4 h-4 text-amber-400" />
-              Sales Orders — Reservation Rules
-            </h3>
-            <ul className="space-y-3">
-              <li className="flex items-start gap-2 text-[12px] text-[#4a4a5a] leading-relaxed">
+            </div>
+          )}
+
+          {rulesTab === "res" && (
+            <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+              <li className="flex items-start gap-2 text-[12px] text-[#4a4a5a] leading-relaxed list-none">
                 <CheckCircle className="w-3.5 h-3.5 text-indigo-400 mt-0.5 shrink-0" />
-                <span>Reservations are controlled by a setting with two modes: Flexible and Strict. You can adjust this in{" "}
-                  <button onClick={() => onNavigate?.("settings")} className="text-indigo-500 underline font-semibold hover:text-indigo-700 cursor-pointer">Reservation settings</button>.
+                <span>Reservations are controlled by a setting with two modes: Flexible and Strict. Adjust in{" "}
+                  <button onClick={() => onNavigate?.("settings")} className="text-[12px] text-indigo-500 underline font-semibold hover:text-indigo-700 cursor-pointer">Reservation settings</button>.
                 </span>
               </li>
               <Rule text="A reservation holds the order's items in a warehouse so they aren't used elsewhere" />
@@ -252,8 +263,8 @@ export function SOLifeCyclePageV3({ onNavigate }: { onNavigate?: (route: string)
               <Rule text="You can also reserve items manually at any time after approval" />
               <Rule text="Cancelling a reservation releases the items and moves it to History" />
               <Rule text="Negative reservations, when enabled, let you reserve quantities beyond available stock; when disabled, you can only reserve what's in stock" />
-            </ul>
-          </div>
+            </div>
+          )}
         </div>
 
         <div className="h-8" />

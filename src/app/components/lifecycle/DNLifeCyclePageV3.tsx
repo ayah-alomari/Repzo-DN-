@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   FileText, Truck, CheckCircle2, Settings2,
   PackageCheck, XCircle, Info, CheckCircle,
@@ -87,6 +88,7 @@ function Rule({ text }: { text: string }) {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export function DNLifeCyclePageV3({ onNavigate }: { onNavigate?: (route: string) => void }) {
+  const [rulesTab, setRulesTab] = useState<"dn" | "transfer">("dn");
   return (
     <div className="flex-1 flex flex-col min-w-0 bg-[#f7f7f9] overflow-hidden">
       <TopNav customTabs={LIFECYCLE_TABS} activeRoute="dn-life-cycle-v3" onNavigate={onNavigate} />
@@ -198,33 +200,47 @@ export function DNLifeCyclePageV3({ onNavigate }: { onNavigate?: (route: string)
           </div>
         </div>
 
-        {/* Rules */}
-        <div className="grid grid-cols-2 gap-5">
-          <div className="bg-white rounded-xl border border-[#e8e8ec] p-6">
-            <h3 className="text-[13px] font-bold text-[#1a1a2e] mb-4 flex items-center gap-2">
+        {/* Rules — tabbed card */}
+        <div className="bg-white rounded-xl border border-[#e8e8ec] p-6">
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="text-[13px] font-bold text-[#1a1a2e] flex items-center gap-2">
               <Info className="w-4 h-4 text-indigo-400" />
-              Delivery Notes Rules
+              Delivery Note Rules
             </h3>
-            <ul className="space-y-3">
+            <div className="flex items-center gap-1 bg-[#f5f5f7] rounded-lg p-1">
+              <button
+                onClick={() => setRulesTab("dn")}
+                className={`px-3 py-1.5 rounded-md text-[12px] font-semibold transition-all cursor-pointer ${rulesTab === "dn" ? "bg-[#1a1a2e] text-white shadow-sm" : "text-gray-400 hover:text-gray-600"}`}
+              >
+                Delivery note · 5
+              </button>
+              <button
+                onClick={() => setRulesTab("transfer")}
+                className={`px-3 py-1.5 rounded-md text-[12px] font-semibold transition-all cursor-pointer ${rulesTab === "transfer" ? "bg-[#1a1a2e] text-white shadow-sm" : "text-gray-400 hover:text-gray-600"}`}
+              >
+                Transfer · 4
+              </button>
+            </div>
+          </div>
+
+          {rulesTab === "dn" && (
+            <div className="grid grid-cols-2 gap-x-8 gap-y-3">
               <Rule text="A delivery note can be created from an invoice or an approved sales order" />
               <Rule text="Multiple delivery notes can be created for a single sales order or invoice" />
               <Rule text="Rep marks delivery on the mobile app, not on this dashboard" />
               <Rule text="A delivered delivery note can't be modified or cancelled" />
               <Rule text="A reservation can only be cancelled manually, and is revoked once its items are delivered" />
-            </ul>
-          </div>
-          <div className="bg-white rounded-xl border border-[#e8e8ec] p-6">
-            <h3 className="text-[13px] font-bold text-[#1a1a2e] mb-4 flex items-center gap-2">
-              <Info className="w-4 h-4 text-orange-400" />
-              Delivery Note — Transfer Rules
-            </h3>
-            <ul className="space-y-3">
+            </div>
+          )}
+
+          {rulesTab === "transfer" && (
+            <div className="grid grid-cols-2 gap-x-8 gap-y-3">
               <Rule text="The delivery note cycle covers transfer creation, transfer approval, and delivery" />
               <Rule text="The delivery note moves from Pending to Noted for Delivery after the transfer is confirmed, if a transfer exists" />
               <Rule text="After the transfer is confirmed, the rep's van inventory is updated" />
               <Rule text="Reservations are transferred from one warehouse to another when the reserved items are transferred" />
-            </ul>
-          </div>
+            </div>
+          )}
         </div>
 
         <div className="h-8" />
