@@ -27,11 +27,15 @@ import { SettingsPage } from "./components/SettingsPage";
 import { SalesOrderDetailsV2 } from "./components/sales/SalesOrderDetailsV2";
 import { SOLifeCyclePage } from "./components/lifecycle/SOLifeCyclePage";
 import { SOLifeCyclePageV2 } from "./components/lifecycle/SOLifeCyclePageV2";
+import { SOLifeCyclePageV3 } from "./components/lifecycle/SOLifeCyclePageV3";
 import { DNLifeCyclePage } from "./components/lifecycle/DNLifeCyclePage";
 import { DNLifeCyclePageV2 } from "./components/lifecycle/DNLifeCyclePageV2";
+import { DNLifeCyclePageV3 } from "./components/lifecycle/DNLifeCyclePageV3";
 import { LifeCyclePlaceholderPage } from "./components/lifecycle/LifeCyclePlaceholderPage";
 import { InvoiceLifeCyclePage } from "./components/lifecycle/InvoiceLifeCyclePage";
+import { InvoiceLifeCyclePageV2 } from "./components/lifecycle/InvoiceLifeCyclePageV2";
 import { UnloadLifeCyclePage } from "./components/lifecycle/UnloadLifeCyclePage";
+import { UnloadLifeCyclePageV2 } from "./components/lifecycle/UnloadLifeCyclePageV2";
 import { ReturnNoteLifeCyclePage } from "./components/lifecycle/ReturnNoteLifeCyclePage";
 import { AppDataProvider, useAppData } from "./context/AppDataContext";
 
@@ -208,14 +212,22 @@ function AppInner() {
         <SOLifeCyclePage onNavigate={setCurrentRoute} />
       ) : currentRoute === "so-life-cycle-v2" ? (
         <SOLifeCyclePageV2 onNavigate={setCurrentRoute} />
+      ) : currentRoute === "so-life-cycle-v3" ? (
+        <SOLifeCyclePageV3 onNavigate={setCurrentRoute} />
       ) : currentRoute === "dn-life-cycle" ? (
         <DNLifeCyclePage onNavigate={setCurrentRoute} />
       ) : currentRoute === "dn-life-cycle-v2" ? (
         <DNLifeCyclePageV2 onNavigate={setCurrentRoute} />
+      ) : currentRoute === "dn-life-cycle-v3" ? (
+        <DNLifeCyclePageV3 onNavigate={setCurrentRoute} />
       ) : currentRoute === "invoice-life-cycle" ? (
         <InvoiceLifeCyclePage onNavigate={setCurrentRoute} />
+      ) : currentRoute === "invoice-life-cycle-v2" ? (
+        <InvoiceLifeCyclePageV2 onNavigate={setCurrentRoute} />
       ) : currentRoute === "unload-life-cycle" ? (
         <UnloadLifeCyclePage onNavigate={setCurrentRoute} />
+      ) : currentRoute === "unload-life-cycle-v2" ? (
+        <UnloadLifeCyclePageV2 onNavigate={setCurrentRoute} />
       ) : currentRoute === "pickup-note-life-cycle" ? (
         <ReturnNoteLifeCyclePage onNavigate={setCurrentRoute} />
       ) : currentRoute === "settings" ? (

@@ -38,11 +38,10 @@ export const navItems = [
   { label: "Gallery", icon: Image, route: "gallery" },
   { label: "Schedule", icon: CalendarDays, route: "schedule" },
   { label: "Life Cycle", icon: Activity, hasSubmenu: true, route: "life-cycle", subItems: [
-    { label: "Sales order", icon: FileCheck, route: "so-life-cycle" },
-    { label: "Sales order V2", icon: FileCheck, route: "so-life-cycle-v2" },
-    { label: "Delivery Note", icon: Truck, route: "dn-life-cycle" },
-    { label: "Invoice", icon: FileText, route: "invoice-life-cycle" },
-    { label: "Unload", icon: PackageX, route: "unload-life-cycle" },
+    { label: "Sales order", icon: FileCheck, route: "so-life-cycle-v3" },
+    { label: "Delivery Note", icon: Truck, route: "dn-life-cycle-v3" },
+    { label: "Invoice", icon: FileText, route: "invoice-life-cycle-v2" },
+    { label: "Unload", icon: PackageX, route: "unload-life-cycle-v2" },
     { label: "Return note", icon: ClipboardList, route: "pickup-note-life-cycle" },
   ] },
   { label: "Sales", icon: ShoppingCart, hasSubmenu: true, route: "sales", subItems: [

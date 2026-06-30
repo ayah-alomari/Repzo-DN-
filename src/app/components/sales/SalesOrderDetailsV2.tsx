@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { getProductFamily, getBaseUnit, toBase, getUnitFactor } from "./measurementUnits";
 import {
   useAppData,
@@ -10,8 +10,8 @@ import {
   Box, Truck, FileText, ArrowLeftRight,
   Clock, X, Check, User, AlertCircle,
   CheckCircle2, Bookmark, History as HistoryIcon,
-  ImageIcon, Eye, ChevronRight,
-  Maximize2, Minimize2,
+  ImageIcon, Eye, ChevronRight, ChevronDown,
+  Maximize2, Minimize2, Download,
 } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { ConvertInvoiceModal } from "./ConvertInvoiceModal";
@@ -131,6 +131,8 @@ export function SalesOrderDetailsV2({
   const soId = soRecord?.id ?? orderId ?? "";
   const soReservations = reservations.filter(r => r.sourceSOId === soId);
 
+  const [showCreateMenu, setShowCreateMenu] = useState(false);
+  const createMenuRef = useRef<HTMLDivElement>(null);
   const [linkedInvoiceId, setLinkedInvoiceId] = useState<string | null>(null);
   const [isConvertModalOpen, setIsConvertModalOpen] = useState(false);
   const [isDNModalOpen, setIsDNModalOpen] = useState(false);
@@ -145,6 +147,16 @@ export function SalesOrderDetailsV2({
   const toggleDN = (id: string) => setExpandedDNs(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const [dnItemFilter, setDnItemFilter] = useState<string | null>(null);
   const filterDNsByItem = (itemId: string) => { setDnItemFilter(itemId); setActiveTab("delivery"); };
+
+  useEffect(() => {
+    if (!showCreateMenu) return;
+    const h = (e: MouseEvent) => {
+      if (createMenuRef.current && !createMenuRef.current.contains(e.target as Node))
+        setShowCreateMenu(false);
+    };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [showCreateMenu]);
 
   useEffect(() => {
     if (!isFullscreen) return;
@@ -281,8 +293,28 @@ export function SalesOrderDetailsV2({
     let balance = total;
     if (data.paymentStatus === "PAID") balance = 0;
     else if (data.paymentStatus === "PARTIAL") balance = total / 2;
-    const newInvoice: InvoiceRecord = { id: newInvoiceId, serialNo: newInvoiceId, externalSerial: "-", issueDate: new Date().toLocaleDateString("en-GB"), creator: data.rep || "Admin", clientName: soRecord?.clientName ?? "-", items: orderItems.length, total: `JOD ${total.toFixed(2)}`, balance: `JOD ${balance.toFixed(2)}`, paymentType: data.paymentStatus === "UNPAID" ? "Credit" : "Cash", status: "PENDING", delivery: data.markAsDelivered ? "Delivered" : "No Delivery Note", comment: "", sourceSOId: soId || undefined };
+    const newInvoice: InvoiceRecord = { id: newInvoiceId, serialNo: newInvoiceId, externalSerial: "-", issueDate: new Date().toLocaleDateString("en-GB"), creator: data.rep || "Admin", clientName: soRecord?.clientName ?? "-", items: orderItems.length, total: `JOD ${total.toFixed(2)}`, balance: `JOD ${balance.toFixed(2)}`, paymentType: data.paymentStatus === "UNPAID" ? "Credit" : "Cash", status: "PENDING", delivery: data.markAsDelivered ? "Delivered" : "No Delivery Note", comment: "", sourceSOId: soId || undefined, warehouse: data.primaryWarehouse || undefined, reservedItems: (data.newAllocations || []).map((a: any) => ({ itemId: a.itemId, itemName: a.itemName, qty: a.qty, unit: a.unit, warehouse: a.warehouse })) };
     setInvoices(prev => [newInvoice, ...prev]);
+    if ((data.newAllocations || []).length > 0) {
+      const groupId = `GRP-INV-${newInvoiceId}`;
+      const newResObjects: Reservation[] = (data.newAllocations as any[]).map((a, idx) => {
+        const family = getProductFamily(a.itemId);
+        return {
+          id: `RES-${newInvoiceId}-${idx}`,
+          itemId: a.itemId, itemName: a.itemName,
+          qty: a.qty, unit: a.unit,
+          qtyBase: family ? toBase(a.qty, a.unit, family) : a.qty,
+          warehouse: a.warehouse,
+          status: "ACTIVE" as const,
+          date: new Date().toLocaleDateString("en-GB"),
+          type: "AUTO" as const,
+          sourceSOId: soId || undefined,
+          sourceInvoiceId: newInvoiceId,
+          groupId,
+        };
+      });
+      setReservations(prev => [...prev, ...newResObjects]);
+    }
     updateSoGlobal({ status: "invoiced", linkedInvoiceId: newInvoiceId });
     setIsConvertModalOpen(false);
     addSOAudit({ action: "converted_to_invoice", by: "Admin", linkedId: newInvoiceId, linkedLabel: newInvoiceId });
@@ -329,27 +361,66 @@ export function SalesOrderDetailsV2({
           {status === "INVOICED" ? "Approved" : status.charAt(0) + status.slice(1).toLowerCase()}
         </span>
         {cycle > 1 && <span className="text-[11px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full shrink-0">Cycle {cycle}</span>}
-        <div className="flex items-center gap-0.5 ml-auto text-[#5a5a6a] shrink-0">
-          <button className="flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium rounded-md hover:bg-gray-100 hover:text-[#1a1a2e] transition-colors"><Pencil className="w-3.5 h-3.5" /> Edit</button>
-          <button className="p-1.5 rounded-md hover:bg-gray-100 hover:text-[#1a1a2e] transition-colors" title="Attachments"><Paperclip className="w-4 h-4" /></button>
-          <button className="flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium rounded-md hover:bg-gray-100 hover:text-[#1a1a2e] transition-colors"><Printer className="w-3.5 h-3.5" /> Print</button>
-          <button onClick={() => setIsHistoryOpen(true)} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium rounded-md hover:bg-gray-100 hover:text-[#1a1a2e] transition-colors"><HistoryIcon className="w-3.5 h-3.5" /> History</button>
-          <button className="p-1.5 rounded-md hover:bg-gray-100 hover:text-[#1a1a2e] transition-colors" title="Settings"><Settings className="w-4 h-4" /></button>
+        <div className="flex items-center gap-1 ml-auto text-[#5a5a6a] shrink-0">
+          {/* Edit — hidden after final approval */}
+          {status !== "APPROVED" && status !== "INVOICED" && (
+            <button className="flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium rounded-md hover:bg-gray-100 hover:text-[#1a1a2e] transition-colors">
+              <Pencil className="w-3.5 h-3.5" /> Edit
+            </button>
+          )}
+          <button className="flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium rounded-md hover:bg-gray-100 hover:text-[#1a1a2e] transition-colors">
+            <Download className="w-3.5 h-3.5" /> Export Excel
+          </button>
+          <button className="flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium rounded-md hover:bg-gray-100 hover:text-[#1a1a2e] transition-colors">
+            <Printer className="w-3.5 h-3.5" /> PDF/Print
+          </button>
+          <button onClick={() => setIsHistoryOpen(true)} className="p-1.5 rounded-md hover:bg-gray-100 hover:text-[#1a1a2e] transition-colors" title="History">
+            <HistoryIcon className="w-4 h-4" />
+          </button>
+          <button className="p-1.5 rounded-md hover:bg-gray-100 hover:text-[#1a1a2e] transition-colors" title="Settings">
+            <Settings className="w-4 h-4" />
+          </button>
           <button onClick={() => setIsFullscreen(f => !f)} title={isFullscreen ? "Exit fullscreen (Esc)" : "Fullscreen"} className="p-1.5 rounded-md hover:bg-gray-100 hover:text-[#1a1a2e] transition-colors">
             {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
           </button>
           {onViewV1 && (
-            <button onClick={onViewV1} className="ml-1 px-3 py-1.5 text-[12px] font-medium text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+            <button onClick={onViewV1} className="px-3 py-1.5 text-[12px] font-medium text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
               View V1
             </button>
           )}
-          <div className="w-px h-5 bg-gray-200 mx-1.5" />
+          <div className="w-px h-5 bg-gray-200 mx-0.5" />
+          {/* Convert to Invoice — primary CTA when APPROVED */}
           {status === "APPROVED" && (
-            <button onClick={() => setIsConvertModalOpen(true)} className="flex items-center gap-1.5 text-white px-3.5 py-1.5 rounded-[6px] text-[12px] font-semibold hover:bg-[#111827] active:scale-95 transition-all bg-[#1a1a2e]"><Box className="w-3.5 h-3.5 text-gray-300" /> Convert to Invoice</button>
+            <button onClick={() => setIsConvertModalOpen(true)} className="flex items-center gap-1.5 text-white px-3.5 py-1.5 rounded-[6px] text-[12px] font-semibold hover:bg-[#111827] active:scale-95 transition-all bg-[#1a1a2e]">
+              <Box className="w-3.5 h-3.5 text-gray-300" /> Convert to Invoice
+            </button>
           )}
           {status === "INVOICED" && linkedInvoiceId && (
-            <button onClick={() => onNavigateToInvoice?.(linkedInvoiceId)} className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-[6px] text-[12px] font-semibold hover:bg-indigo-100 active:scale-95 transition-all bg-indigo-50 text-indigo-700 border border-indigo-200"><Box className="w-3.5 h-3.5" /> View Invoice</button>
+            <button onClick={() => onNavigateToInvoice?.(linkedInvoiceId)} className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-[6px] text-[12px] font-semibold hover:bg-indigo-100 active:scale-95 transition-all bg-indigo-50 text-indigo-700 border border-indigo-200">
+              <Box className="w-3.5 h-3.5" /> View Invoice
+            </button>
           )}
+          {/* Create dropdown */}
+          <div className="relative" ref={createMenuRef}>
+            <button onClick={() => setShowCreateMenu(v => !v)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold rounded-[6px] border transition-colors ${showCreateMenu ? "bg-gray-100 border-gray-300 text-[#1a1a2e]" : "bg-white border-gray-200 text-[#1a1a2e] hover:bg-gray-50"}`}>
+              Create <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${showCreateMenu ? "rotate-180" : ""}`} />
+            </button>
+            {showCreateMenu && (
+              <div className="absolute right-0 top-full mt-1.5 w-52 bg-white border border-gray-200 rounded-lg shadow-lg z-20 overflow-hidden">
+                <button onClick={() => { setShowCreateMenu(false); setIsDNModalOpen(true); }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] font-medium text-gray-700 hover:bg-gray-50 transition-colors text-left">
+                  <Truck className="w-3.5 h-3.5 text-gray-400" /> Create Delivery Note
+                </button>
+                {!preventInvoiceReservations && (
+                  <button onClick={() => { setShowCreateMenu(false); setIsCreateResModalOpen(true); }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] font-medium text-gray-700 hover:bg-gray-50 transition-colors text-left">
+                    <Bookmark className="w-3.5 h-3.5 text-gray-400" /> Create Reservation
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

@@ -135,6 +135,7 @@ export interface InvoiceRecord {
   delivery: "No Delivery Note" | "Has Delivery Note" | "Delivered";
   comment: string;
   sourceSOId?: string;
+  warehouse?: string;
   itemsData?: OrderItem[];
   reservedItems?: { itemId: string; itemName: string; qty: number; unit: string; warehouse: string }[];
 }

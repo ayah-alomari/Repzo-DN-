@@ -11,7 +11,7 @@ import {
   History as HistoryIcon,
   ImageIcon, Eye, ChevronRight, ChevronDown,
   Maximize2, Minimize2, Send,
-  ExternalLink, RotateCcw,
+  ExternalLink, RotateCcw, Bookmark,
 } from "lucide-react";
 import { CreateDeliveryNoteModal } from "./CreateDeliveryNoteModal";
 
@@ -121,7 +121,7 @@ export function InvoiceDetailsV2({
   invoiceId, onBack, onNavigateToSO, onNavigateToDN, onNavigateToTransfer, onViewV1,
 }: Props) {
   const {
-    invoices, setInvoices,
+    invoices,
     dnList, setDnList,
     reservations, setReservations,
     transferList, setTransferList,
@@ -132,7 +132,7 @@ export function InvoiceDetailsV2({
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [isFullscreen,       setIsFullscreen]       = useState(false);
-  const [activeTab,          setActiveTab]          = useState<"items" | "delivery">("items");
+  const [activeTab,          setActiveTab]          = useState<"items" | "delivery" | "reservations">("items");
   const [expandedDNs,        setExpandedDNs]        = useState<Set<string>>(new Set());
   const [expandedBatches,    setExpandedBatches]    = useState<Set<string>>(new Set());
   const [dnItemFilter,       setDnItemFilter]       = useState<string | null>(null);
@@ -147,7 +147,7 @@ export function InvoiceDetailsV2({
   const toggleDN     = (id: string) => setExpandedDNs(prev    => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const toggleBatch  = (id: string) => setExpandedBatches(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const filterByItem = (itemId: string) => { setDnItemFilter(itemId); setActiveTab("delivery"); };
-  const switchTab    = (tab: "items" | "delivery") => { setActiveTab(tab); setShowColumnsPanel(false); };
+  const switchTab    = (tab: "items" | "delivery" | "reservations") => { setActiveTab(tab); setShowColumnsPanel(false); };
 
   // ── Derived delivery notes ────────────────────────────────────────────────
   const [deliveryNotes, setDeliveryNotes] = useState<DeliveryNote[]>([]);
@@ -367,6 +367,9 @@ export function InvoiceDetailsV2({
               <SideField label="Issue date"    value={record.issueDate} />
               <SideField label="Created by"    value={record.creator} />
               <SideField label="Impl. by"      value="—" />
+              {record.warehouse && (
+                <SideField label="Warehouse" value={record.warehouse} />
+              )}
               <SideField label="Payment type"  value={record.paymentType || "—"} />
             </div>
           </div>
@@ -501,6 +504,24 @@ export function InvoiceDetailsV2({
                   </span>
                 )}
               </button>
+              {(() => {
+                const invReservations = reservations.filter(r =>
+                  r.sourceInvoiceId === record.id ||
+                  (record.sourceSOId && r.sourceSOId === record.sourceSOId)
+                );
+                const activeCount = invReservations.filter(r => r.status === "ACTIVE").length;
+                return (
+                  <button onClick={() => switchTab("reservations")}
+                    className={`px-5 py-3.5 text-[12px] font-bold uppercase tracking-wide border-b-2 -mb-px transition-colors flex items-center gap-1.5 ${activeTab === "reservations" ? "border-[#4f6ef7] text-[#4f6ef7]" : "border-transparent text-gray-400 hover:text-gray-600"}`}>
+                    Reservations
+                    {invReservations.length > 0 && (
+                      <span className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold ${activeTab === "reservations" ? "bg-[#4f6ef7] text-white" : activeCount > 0 ? "bg-amber-100 text-amber-700" : "bg-gray-200 text-gray-500"}`}>
+                        {activeCount > 0 ? activeCount : invReservations.length}
+                      </span>
+                    )}
+                  </button>
+                );
+              })()}
 
               {/* Per-tab toolbar — consistent right-aligned position */}
               <div className="ml-auto flex items-center gap-2 pr-5">
@@ -689,6 +710,91 @@ export function InvoiceDetailsV2({
                 )}
               </>
             )}
+
+            {/* ══ Reservations tab ══════════════════════════════════════════ */}
+            {activeTab === "reservations" && (() => {
+              const invReservations = reservations.filter(r =>
+                r.sourceInvoiceId === record.id ||
+                (record.sourceSOId && r.sourceSOId === record.sourceSOId)
+              );
+              const statusStyle = (s: string) =>
+                s === "ACTIVE"  ? { dot: "bg-amber-400", badge: "bg-amber-50 text-amber-700 border-amber-200",  label: "Active" }  :
+                s === "REVOKED" ? { dot: "bg-green-400", badge: "bg-green-50 text-green-700 border-green-200",  label: "Consumed" } :
+                                  { dot: "bg-red-400",   badge: "bg-red-50 text-red-700 border-red-200",        label: "Canceled" };
+              const activeCount = invReservations.filter(r => r.status === "ACTIVE").length;
+              if (invReservations.length === 0 || activeCount === 0) return (
+                <div className="flex flex-col items-center justify-center py-14 text-center">
+                  <Bookmark className="w-10 h-10 text-gray-200 mb-3" />
+                  <p className="text-[13px] font-medium text-gray-400 mb-1">No active reservations</p>
+                  <p className="text-[11px] text-gray-300">Any active stock holds for this invoice will appear here</p>
+                </div>
+              );
+              return (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-gray-100 bg-gray-50/60">
+                        <th className="px-5 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Item</th>
+                        <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center">Qty</th>
+                        <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Warehouse</th>
+                        <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Date</th>
+                        <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center">Type</th>
+                        <th className="px-4 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Linked DN</th>
+                        <th className="px-5 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-50">
+                      {invReservations.map(r => {
+                        const s = statusStyle(r.status);
+                        return (
+                          <tr key={r.id} className="hover:bg-gray-50/50 transition-colors">
+                            <td className="px-5 py-3.5">
+                              <div className="flex items-center gap-2">
+                                <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${s.dot}`} />
+                                <div>
+                                  <p className="text-[13px] font-bold text-gray-900">{r.itemName}</p>
+                                  <p className="text-[10px] text-gray-400 font-medium">{r.id}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3.5 text-center">
+                              <span className="text-[13px] font-bold text-gray-900">{r.qty}</span>
+                              <span className="text-[11px] text-gray-400 ml-1">{r.unit}</span>
+                            </td>
+                            <td className="px-4 py-3.5 text-[12px] text-gray-600">{r.warehouse ?? "—"}</td>
+                            <td className="px-4 py-3.5 text-[12px] text-gray-500 whitespace-nowrap">{r.date}</td>
+                            <td className="px-4 py-3.5 text-center">
+                              <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold border ${r.type === "AUTO" ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-purple-50 text-purple-700 border-purple-200"}`}>
+                                {r.type}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3.5">
+                              {r.linkedDNId ? (
+                                <button onClick={() => onNavigateToDN?.(r.linkedDNId!)}
+                                  className="flex items-center gap-1 text-[12px] font-semibold text-[#4f6ef7] hover:underline transition-colors">
+                                  <Truck className="w-3 h-3" />
+                                  {r.linkedDNNumber ?? r.linkedDNId}
+                                </button>
+                              ) : <span className="text-[12px] text-gray-300">—</span>}
+                            </td>
+                            <td className="px-5 py-3.5 text-right">
+                              <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold border ${s.badge}`}>{s.label}</span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {/* Summary footer */}
+                  <div className="px-5 py-3 border-t border-gray-100 flex items-center gap-4 text-[11px] text-gray-400">
+                    <span><span className="font-bold text-amber-600">{invReservations.filter(r => r.status === "ACTIVE").length}</span> active</span>
+                    <span><span className="font-bold text-green-600">{invReservations.filter(r => r.status === "REVOKED").length}</span> consumed</span>
+                    <span><span className="font-bold text-red-500">{invReservations.filter(r => r.status === "CANCELED").length}</span> canceled</span>
+                    <span className="ml-auto">{invReservations.length} total reservation{invReservations.length !== 1 ? "s" : ""}</span>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* ══ Delivery Notes tab ════════════════════════════════════════ */}
             {activeTab === "delivery" && (
